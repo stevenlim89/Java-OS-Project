@@ -44,7 +44,6 @@ public class Semaphore {
 		else {
 			value--;
 		}
-		System.out.println("bye");
 		Machine.interrupt().restore(intStatus);
 	}
 
