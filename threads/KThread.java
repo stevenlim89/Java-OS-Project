@@ -284,10 +284,13 @@ public class KThread {
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
 		Lib.assertTrue(this != currentThread);
+
+		Semaphore sema = new Semaphore(1);
 		
-		Semaphore sema = new Semaphore(0);
-		
+		// I do not believe this is correct
 		sema.P();
+		status = statusFinished;
+		sema.V();
 	}
 
 	/**
@@ -423,15 +426,16 @@ public class KThread {
 	            for (int i = 0; i < 5; i++) {
 	                System.out.println("i = " + i);
 	            }
+	            
 	        }
 	    });
 	    t1.setName("Thread 1");
 	    t1.fork();
-	    System.out.println("does this work?");
 	    t1.join();
 	    System.out.println("Reached part of code after t1.join(). t1 should be finshed at this point.");
 	    System.out.println("t1 finished? " + (t1.status == statusFinished));
 	    Lib.assertTrue((t1.status == statusFinished), " Expected t1 to be finished.");
+	
 	}
 
 	private static final char dbgThread = 't';
