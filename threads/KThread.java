@@ -202,7 +202,7 @@ public class KThread {
 		toBeDestroyed = currentThread;
 
 		currentThread.status = statusFinished;
-
+		sema.V();
 		sleep();
 	}
 
@@ -285,12 +285,7 @@ public class KThread {
 
 		Lib.assertTrue(this != currentThread);
 
-		Semaphore sema = new Semaphore(1);
-		
-		// I do not believe this is correct
 		sema.P();
-		status = statusFinished;
-		sema.V();
 	}
 
 	/**
@@ -397,15 +392,30 @@ public class KThread {
 		Lib.assertTrue(this == currentThread);
 	}
 
+	static KThread thread0, thread1, thread2;
 	private static class PingTest implements Runnable {
 		PingTest(int which) {
 			this.which = which;
 		}
 
-		public void run() {
+		/*public void run() {
 			for (int i = 0; i < 5; i++) {
 				System.out.println("*** thread " + which + " looped " + i
 						+ " times");
+				currentThread.yield();
+			}
+		}*/
+		public void run() 
+		{
+			if ( which == 2 )
+				thread1.join();
+
+			if ( which == 1 )
+				thread0.join();
+
+			for (int i = 0; i < 5; i++) 
+			{
+				System.out.println("*** thread " + which + " looped " + i + " times");
 				currentThread.yield();
 			}
 		}
@@ -421,7 +431,7 @@ public class KThread {
 
 		new KThread(new PingTest(1)).setName("forked thread").fork();
 		new PingTest(0).run();*/
-		KThread t1 = new KThread( new Runnable () {
+		/*KThread t1 = new KThread( new Runnable () {
 	        public void run() {
 	            for (int i = 0; i < 5; i++) {
 	                System.out.println("i = " + i);
@@ -435,7 +445,15 @@ public class KThread {
 	    System.out.println("Reached part of code after t1.join(). t1 should be finshed at this point.");
 	    System.out.println("t1 finished? " + (t1.status == statusFinished));
 	    Lib.assertTrue((t1.status == statusFinished), " Expected t1 to be finished.");
-	
+	*/
+		Lib.debug(dbgThread, "Enter KThread.selfTest");
+		thread0 = new KThread(new PingTest(0)).setName("forked thread");
+		thread1 = new KThread(new PingTest(1)).setName("forked thread");
+		thread2 = new KThread(new PingTest(2)).setName("forked thread");
+		thread0.fork();
+		thread1.fork();
+		thread2.fork();
+		thread2.join();
 	}
 
 	private static final char dbgThread = 't';
@@ -486,4 +504,6 @@ public class KThread {
 	private static KThread toBeDestroyed = null;
 
 	private static KThread idleThread = null;
+	
+	private static Semaphore sema = new Semaphore(0);;
 }
