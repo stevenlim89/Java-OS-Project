@@ -34,14 +34,13 @@ public class Alarm {
 	public void timerInterrupt() {
 		//check queue if thread is ready to wake up, check the wake time 
 		//loop through the times pq to compare the time and wake up the thread
+		Pair pair;
 		if(pq.size() != 0){
-			if(pq.peek()<=Machine.timer().getTime()){
-				pq.poll();
-				s.V();
-			//KThread.currentThread().ready();
+			if(pq.peek().l <= Machine.timer().getTime()){
+				pair = pq.poll();
+				pair.s.V();
 			}
 		}
-		//KThread.currentThread().yield();
 	}
 
 	/**
@@ -59,7 +58,7 @@ public class Alarm {
 	public void waitUntil(long x) {
 		// for now, cheat just to get something working (busy waiting is bad)
 		// busy waitingwhile (wakeTime > Machine.timer().getTime()){		}
-		
+		s = new Semaphore(0);
 		//notes
 		//sleep in waituntil, wake up in timer interrupt
 		// timer interrupt will tick 500 times, check if threads need to be waken up
@@ -69,9 +68,11 @@ public class Alarm {
 		
 		long wakeTime = Machine.timer().getTime() + x; // block thread 
 		//that is calling waituntil
-		pq.add(Map<wakeTime,s>); //stores waketime 
-		s.P(); //TODO: add s to the priority queue before calling P
+		Pair p = new Pair(s, wakeTime);
+		pq.add(p); //stores waketime 
+		s.P(); //TODO: add s to the priority queue before calling P	
 	}
+	
 	public static void selfTest() {
 	    KThread t1 = new KThread(new Runnable() {
 	        public void run() {
@@ -88,6 +89,38 @@ public class Alarm {
 	    t1.fork();
 	    t1.join();
 	}
-	private PriorityQueue<> pq = new PriorityQueue<Map<Long,Semaphore>>();
-	private static Semaphore s =new Semaphore(0);
+	
+	private class Pair implements Map.Entry<Semaphore, Long>{
+		
+		private Semaphore s;
+		private Long l;
+		
+		public Pair(Semaphore sema, Long value){
+			this.s = sema;
+			this.l = value;
+		}
+		
+		@Override
+		public Semaphore getKey() {
+			return s;
+		}
+
+		@Override
+		public Long getValue() {
+			return l;
+		}
+
+		@Override
+		public Long setValue(Long value) {
+			Long waitTimeOld = this.l;
+			this.l = value;
+			return waitTimeOld;
+		}
+		
+	}
+	
+	
+	
+	private PriorityQueue<Pair> pq = null;
+	private static Semaphore s;
 }
