@@ -505,5 +505,5 @@ public class KThread {
 
 	private static KThread idleThread = null;
 	
-	private static Semaphore sema = new Semaphore(0);;
+	private static Semaphore sema = new Semaphore(0); //extra semicolon?
 }

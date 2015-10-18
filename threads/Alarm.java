@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import java.util.PriorityQueue;
+import java.util.*; // added in to get Map 
 
 import nachos.machine.*;
 
@@ -31,7 +32,16 @@ public class Alarm {
 	 * should be run.
 	 */
 	public void timerInterrupt() {
-		KThread.currentThread().yield();
+		//check queue if thread is ready to wake up, check the wake time 
+		//loop through the times pq to compare the time and wake up the thread
+		if(pq.size() != 0){
+			if(pq.peek()<=Machine.timer().getTime()){
+				pq.poll();
+				s.V();
+			//KThread.currentThread().ready();
+			}
+		}
+		//KThread.currentThread().yield();
 	}
 
 	/**
@@ -48,13 +58,36 @@ public class Alarm {
 	 */
 	public void waitUntil(long x) {
 		// for now, cheat just to get something working (busy waiting is bad)
+		// busy waitingwhile (wakeTime > Machine.timer().getTime()){		}
+		
+		//notes
+		//sleep in waituntil, wake up in timer interrupt
+		// timer interrupt will tick 500 times, check if threads need to be waken up
+		// never wake up current (main). make current threadsleep
 		if(x <= 0)
 			return;
 		
-		long wakeTime = Machine.timer().getTime() + x;
-		while (wakeTime > Machine.timer().getTime())
-			KThread.yield();
+		long wakeTime = Machine.timer().getTime() + x; // block thread 
+		//that is calling waituntil
+		pq.add(Map<wakeTime,s>); //stores waketime 
+		s.P(); //TODO: add s to the priority queue before calling P
 	}
-	
-	private PriorityQueue pq = new PriorityQueue<Semaphore>();
+	public static void selfTest() {
+	    KThread t1 = new KThread(new Runnable() {
+	        public void run() {
+	            long time1 = Machine.timer().getTime();
+	            int waitTime = 10000;
+	            System.out.println("Thread calling wait at time:" + time1);
+	            ThreadedKernel.alarm.waitUntil(waitTime);
+	            System.out.println("Thread woken up after:" + (Machine.timer().getTime() - time1));
+	            Lib.assertTrue((Machine.timer().getTime() - time1) > waitTime, " thread woke up too early.");
+	            
+	        }
+	    });
+	    t1.setName("T1");
+	    t1.fork();
+	    t1.join();
+	}
+	private PriorityQueue<> pq = new PriorityQueue<Map<Long,Semaphore>>();
+	private static Semaphore s =new Semaphore(0);
 }
