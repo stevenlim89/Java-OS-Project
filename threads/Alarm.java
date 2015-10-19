@@ -35,11 +35,13 @@ public class Alarm {
 		//check queue if thread is ready to wake up, check the wake time 
 		//loop through the times pq to compare the time and wake up the thread
 		Pair pair;
-		if(pq.size() != 0){
+		int counter = 0;
+		while(counter < pq.size()){
+			counter++;
 			if(pq.peek().l <= Machine.timer().getTime()){
 				pair = pq.poll();
 				pair.s.V();
-			}
+				}
 		}
 	}
 
@@ -119,8 +121,25 @@ public class Alarm {
 		
 	}
 	
+	private class wakeTimeComparator implements Comparator<Pair>{
+
+		@Override
+		public int compare(Pair p1, Pair p2) {
+			// TODO Auto-generated method stub
+			if(p1.l < p2.l){
+				return -1;
+			}
+			else if(p1.l < p2.l){
+				return 1;
+			}
+			else{
+				return 0;
+			}
+		}
+		
+	}
 	
-	
-	private PriorityQueue<Pair> pq = null;
+    wakeTimeComparator comparator = new wakeTimeComparator();
+	private PriorityQueue<Pair> pq = new PriorityQueue<Pair>(1, comparator);
 	private static Semaphore s;
 }
