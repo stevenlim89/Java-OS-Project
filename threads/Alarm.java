@@ -41,7 +41,7 @@ public class Alarm {
 			if(pq.peek().l <= Machine.timer().getTime()){
 				pair = pq.poll();
 				pair.s.V();
-				}
+			}
 		}
 	}
 
@@ -72,7 +72,7 @@ public class Alarm {
 		//that is calling waituntil
 		Pair p = new Pair(s, wakeTime);
 		pq.add(p); //stores waketime 
-		s.P(); //TODO: add s to the priority queue before calling P	
+		p.s.P(); //TODO: add s to the priority queue before calling P	
 	}
 	
 	public static void selfTest() {
@@ -129,7 +129,7 @@ public class Alarm {
 			if(p1.l < p2.l){
 				return -1;
 			}
-			else if(p1.l < p2.l){
+			else if(p1.l > p2.l){
 				return 1;
 			}
 			else{
