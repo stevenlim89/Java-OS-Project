@@ -27,6 +27,23 @@ public class Communicator {
 	 * @param word the integer to transfer.
 	 */
 	public void speak(int word) {
+		//acquire the lock
+		lock.acquire();
+		//if one of the condition variable queues is empty, sleep
+		while(speakCount == 0 || listenCount == 0) {
+			speakEmpty.sleep();
+		}
+		//increment the counter for the waitqueues
+		speakCount++;
+		
+		//how to transfer control?
+		if(speakCount > 0 && listenCount > 0) {
+			speakEmpty.wake();
+			//manipulate word variable here?
+		}
+		
+		//release the lock
+		lock.release();
 	}
 
 	/**
@@ -38,4 +55,10 @@ public class Communicator {
 	public int listen() {
 		return 0;
 	}
+	
+	private int speakCount = 0;
+	private int listenCount = 0;
+	private Lock lock = new Lock();
+	private Condition speakEmpty = new Condition(lock);
+	private Condition listenEmpty = new Condition(lock);
 }
