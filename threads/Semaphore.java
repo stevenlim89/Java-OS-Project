@@ -36,7 +36,6 @@ public class Semaphore {
 	 */
 	public void P() {
 		boolean intStatus = Machine.interrupt().disable();
-
 		if (value == 0) {
 			waitQueue.waitForAccess(KThread.currentThread());
 			KThread.sleep();
