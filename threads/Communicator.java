@@ -37,10 +37,15 @@ public class Communicator {
 		speakCount++;
 		
 		//how to transfer control?
-		if(speakCount > 0 && listenCount > 0) {
+		//use while loop in case there are multiple speakers and listeners waiting to be paired
+		while(speakCount > 0 && listenCount > 0) {
 			speakEmpty.wake();
 			//manipulate word variable here?
 			message = word;
+			//put back to sleep
+			speakEmpty.sleep();
+			//wake up listener if any
+			listenEmpty.wakeAll();
 			//return here speak will always return before listen?
 			//return;
 		}
@@ -68,9 +73,11 @@ public class Communicator {
 		//increment the counter for the waitqueue
 		listenCount++;
 		
-		if(speakCount > 0 && listenCount > 0) {
+		while(speakCount > 0 && listenCount > 0) {
 			listenEmpty.wake();
 			retVal = message;
+			//wake up spearker if any
+			speakEmpty.wakeAll();
 		}
 		lock.release();
 		return retVal;
@@ -129,4 +136,5 @@ public class Communicator {
 	//condition variables for speak and listen
 	private Condition speakEmpty = new Condition(lock);
 	private Condition listenEmpty = new Condition(lock);
+	//discussion section said there should be a third condition variable... to check if there is a message to send?
 }
