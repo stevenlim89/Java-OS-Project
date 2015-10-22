@@ -97,15 +97,15 @@ public class Communicator {
 	    speaker2.setName("S2");
 	    KThread listener1 = new KThread( new Runnable () {
 	        public void run() {
-	            words[0] = com.listen();
 	            times[2] = Machine.timer().getTime();
+	            words[0] = com.listen();
 	        }
 	    });
 	    listener1.setName("L1");
 	    KThread listener2 = new KThread( new Runnable () {
 	        public void run() {
-	            words[1] = com.listen();
 	            times[3] = Machine.timer().getTime();
+	            words[1] = com.listen();
 	        }
 	    });
 	    listener2.setName("L2");
@@ -115,9 +115,10 @@ public class Communicator {
 	    
 	    Lib.assertTrue(words[0] == 4, "Didn't listen back spoken word."); 
 	    Lib.assertTrue(words[1] == 7, "Didn't listen back spoken word.");
-	    Lib.assertTrue(times[0] < times[2], "speak returned before listen.");
-	    Lib.assertTrue(times[1] < times[3], "speak returned before listen.");
+	    Lib.assertTrue(times[0] > times[2], "speak() returned before listen() called.");
+	    Lib.assertTrue(times[1] > times[3], "speak() returned before listen() called.");
 	}
+	
 	//speakCount and listenCount are used to keep track of number of threads on the respective wait queues
 	private int speakCount = 0;
 	private int listenCount = 0;
