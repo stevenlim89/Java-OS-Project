@@ -9,24 +9,16 @@ import nachos.machine.*;
  * when both a speaker and a listener are waiting, because the two threads can
  * be paired off at this point.
  */
-public class Communicator {
-	
-	private int wordToBeListened;
-	private boolean isWordToBeListened;
-	private Condition speakerCondition;
-	private Condition listenerCondition;
-	private Condition handshake;
-	private Lock lock;
-	
+public class Communicator {	
 	/**
 	 * Allocate a new communicator.
 	 */
 	public Communicator() {
-		this.isWordToBeListened = false;
+		this.sent = false;
 		this.lock = new Lock();
-		this.speakerCondition = new Condition(lock);
-		this.listenerCondition = new Condition(lock);
-		this.handshake = new Condition(lock);
+		this.speaker = new Condition(lock);
+		this.listener = new Condition(lock);
+		this.transmit = new Condition(lock);
 	}
 
 	/**
@@ -41,14 +33,14 @@ public class Communicator {
 	 */
 	public void speak(int word) {
 		lock.acquire();
-		while(isWordToBeListened)
-			speakerCondition.sleep();
+		while(sent) {
+			speaker.sleep();
+		}
+		this.sent = true;
+		this.message = word;
 		
-		this.isWordToBeListened = true;
-		this.wordToBeListened = word;
-		
-		listenerCondition.wake();
-		handshake.sleep();
+		listener.wake();
+		transmit.sleep();
 		lock.release();
 	}
 
@@ -59,19 +51,19 @@ public class Communicator {
 	 * @return the integer transferred.
 	 */
 	public int listen() {
-		int wordTransferred;
+		int word;
 		lock.acquire();
-		while(!isWordToBeListened)
-			listenerCondition.sleep();
+		while(!sent)
+			listener.sleep();
 		
-		wordTransferred = this.wordToBeListened;
-		this.isWordToBeListened = false;
+		word = this.message;
+		this.sent = false;
 		
-		speakerCondition.wake();
-		handshake.wake();
+		speaker.wake();
+		transmit.wake();
 		
 		lock.release();
-		return wordTransferred;
+		return word;
 	}
 	
 	//provided test cast from piazza
@@ -162,4 +154,11 @@ public class Communicator {
 	    System.out.print("PASS");
 
 	}
+	
+	private int message;
+	private boolean sent;
+	private Condition speaker;
+	private Condition listener;
+	private Condition transmit;
+	private Lock lock;
 }
