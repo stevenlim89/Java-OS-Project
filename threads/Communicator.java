@@ -14,11 +14,11 @@ public class Communicator {
 	 * Allocate a new communicator.
 	 */
 	public Communicator() {
-		this.sent = false;
 		this.lock = new Lock();
 		this.speaker = new Condition(lock);
 		this.listener = new Condition(lock);
 		this.transmit = new Condition(lock);
+		this.sent = false;
 	}
 
 	/**
@@ -33,14 +33,16 @@ public class Communicator {
 	 */
 	public void speak(int word) {
 		lock.acquire();
+		
 		while(sent) {
 			speaker.sleep();
 		}
-		this.sent = true;
 		this.message = word;
+		this.sent = true;
 		
 		listener.wake();
 		transmit.sleep();
+		
 		lock.release();
 	}
 
@@ -53,9 +55,10 @@ public class Communicator {
 	public int listen() {
 		int word;
 		lock.acquire();
-		while(!sent)
-			listener.sleep();
 		
+		while(!sent) {
+			listener.sleep();
+		}
 		word = this.message;
 		this.sent = false;
 		
