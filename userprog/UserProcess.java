@@ -413,12 +413,38 @@ public class UserProcess {
 		switch (syscall) {
 		case syscallHalt:
 			return handleHalt();
-
+		case syscallOpen:
+			return handleOpen(a0);
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 			Lib.assertNotReached("Unknown system call!");
 		}
 		return 0;
+	}
+
+	// Handler for open system call
+	private int handleOpen(int address) {
+		String s = readVirtualMemoryString(address, maxLength);
+		
+		// check if file is in virtual memory
+		if(s == null)
+			return -1;
+		
+		OpenFile file = ThreadedKernel.fileSystem.open(s, false);
+		
+		// check if file exists in the file system
+		if(file == null)
+			return -1;
+		
+		int slot = findEmptySlot();
+		
+		// check to see if the file descriptor array is full or not
+		if(slot == -1)
+			return -1;
+		
+		this.fdArray[slot] = new FileDescriptor(file);
+		
+		return slot;
 	}
 
 	/**
@@ -449,6 +475,32 @@ public class UserProcess {
 		}
 	}
 
+	/** File Descriptor Class */
+	private class FileDescriptor{
+		public FileDescriptor(OpenFile f){
+			this.file = f;
+		}
+		
+		private OpenFile file = null;
+	}
+	
+	/** Method to check for an empty slot in the file
+	 * Descriptor Array.
+	 * @return
+	 */
+	private int findEmptySlot(){
+		int counter = 0;
+		while(counter < numberOfFD){
+			if(fdArray[counter] == null){
+				return counter;
+			}
+			else{
+				counter++;
+			}
+		}
+		return -1;
+	}
+	
 	/** The program being run by this process. */
 	protected Coff coff;
 
@@ -464,7 +516,11 @@ public class UserProcess {
 	private int initialPC, initialSP;
 
 	private int argc, argv;
-
+	
+	private FileDescriptor fdArray [] = new FileDescriptor [16];
+	private static final int maxLength = 256;
+	private static final int numberOfFD = 16;
+	
 	private static final int pageSize = Processor.pageSize;
 
 	private static final char dbgProcess = 'a';
