@@ -417,6 +417,13 @@ public class UserProcess {
 			return handleHalt();
 		case syscallOpen:
 			return handleOpen(a0);
+		case syscallWrite:
+			System.out.println("entering handleWrite");
+			return handleWrite(a0,a1,a2);
+		case syscallExit:
+			System.out.println("enteirng exit");
+			handleExit(a0);
+			return 0;
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 			Lib.assertNotReached("Unknown system call!");
@@ -490,26 +497,38 @@ public class UserProcess {
 		
 		return slot;
 	}
-	
+	public void handleExit(int status){
+     		System.out.println("I finished!");
+		KThread.finish();
+		return;
+	}
+
 	public int handleWrite( int fd, int bufptr, int length){
+		System.out.println("hello");
 		// length should be positive
 		if(length < 0){
+			System.out.println("lenth is negative :(");
 			return -1;
 		}
 		
 		//check if file descriptor is in bound (16)
 		if(fd >= numberOfFD){
+                        System.out.println("fd is out of bounds");
 			return -1;
 		}
 		
 		//checks validity of fd slot and openfile 
-		if(fdArray[fd] == null || fdArray[fd].file == null){
+		if(fdArray[fd] == null){
+			System.out.println("slot is null");
 			return -1;
 		}
-		
+	 	if(fdArray[fd].file==null){
+			System.out.println("file is null");
+			return -1;
+		}	
 		//create local buffer
 		byte buffer [] = new byte[length];
-		
+		System.out.println("I just made a buffer");
 		//read process's VA and copy process's buffer into local buffer
 		int bytesTransferred = readVirtualMemory(bufptr,buffer);
 		
@@ -519,6 +538,7 @@ public class UserProcess {
 		int bytesWritten = of.write(buffer, 0,bytesTransferred);
 		return bytesWritten;
 	}
+	
 
 	/**
 	 * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
