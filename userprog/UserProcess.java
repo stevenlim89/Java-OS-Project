@@ -5,6 +5,8 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.HashMap;
+
 
 /**
  * Encapsulates the state of a user process that is not contained in its user
@@ -430,6 +432,12 @@ public class UserProcess {
 		if(s == null)
 			return -1;
 		
+		FileLinks fl = filemap.get(s);
+		if(fl != null){
+			if(fl.Unlink){
+				return -1;
+			}
+		}
 		OpenFile file = ThreadedKernel.fileSystem.open(s, false);
 		
 		// check if file exists in the file system
@@ -441,6 +449,42 @@ public class UserProcess {
 		// check to see if the file descriptor array is full or not
 		if(slot == -1)
 			return -1;
+		
+		if(fl == null){
+			filemap.put(s, new FileLinks());
+		}
+		
+		this.fdArray[slot] = new FileDescriptor(file);
+		
+		return slot;
+	}
+	
+	public int handleCreate(int address) {
+		String s = readVirtualMemoryString(address,maxLength);
+		
+		if(s==null)
+			return -1;
+		
+		FileLinks fl = filemap.get(s);
+		if(fl != null){
+			if(fl.Unlink){
+				return -1;
+			}
+		}
+		
+		OpenFile file = ThreadedKernel.fileSystem.open(s,true);
+		
+		if(file==null)
+			return -1;
+		
+		int slot = findEmptySlot();
+		
+		if(slot ==-1)
+			return -1;
+		
+		if(fl == null){
+			filemap.put(s, new FileLinks());
+		}
 		
 		this.fdArray[slot] = new FileDescriptor(file);
 		
@@ -484,6 +528,14 @@ public class UserProcess {
 		private OpenFile file = null;
 	}
 	
+	/** FileLinks Class*/
+	private class FileLinks{
+		public FileLinks(){}
+		private boolean Unlink = false;
+	}
+	
+	
+	
 	/** Method to check for an empty slot in the file
 	 * Descriptor Array.
 	 * @return
@@ -516,6 +568,9 @@ public class UserProcess {
 	private int initialPC, initialSP;
 
 	private int argc, argv;
+	
+	/** Hashmap for pairing unlink boolean with file object */
+	private static HashMap<String, FileLinks> filemap = new HashMap<String, FileLinks>();
 	
 	private FileDescriptor fdArray [] = new FileDescriptor [16];
 	private static final int maxLength = 256;
