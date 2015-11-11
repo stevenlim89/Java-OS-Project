@@ -490,6 +490,35 @@ public class UserProcess {
 		
 		return slot;
 	}
+	
+	public int handleWrite( int fd, int bufptr, int length){
+		// length should be positive
+		if(length < 0){
+			return -1;
+		}
+		
+		//check if file descriptor is in bound (16)
+		if(fd >= numberOfFD){
+			return -1;
+		}
+		
+		//checks validity of fd slot and openfile 
+		if(fdArray[fd] == null || fdArray[fd].file == null){
+			return -1;
+		}
+		
+		//create local buffer
+		byte buffer [] = new byte[length];
+		
+		//read process's VA and copy process's buffer into local buffer
+		int bytesTransferred = readVirtualMemory(bufptr,buffer);
+		
+		//create Openfile object to write to and return the bytes written
+		OpenFile of = fdArray[fd].file;
+		
+		int bytesWritten = of.write(buffer, 0,bytesTransferred);
+		return bytesWritten;
+	}
 
 	/**
 	 * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
