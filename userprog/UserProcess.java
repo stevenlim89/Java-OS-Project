@@ -423,7 +423,10 @@ public class UserProcess {
 		case syscallWrite:
 	//		System.out.println("entering handleWrite");
 			return handleWrite(a0,a1,a2);
-		case syscallExit:
+		case syscallRead:
+      System.out.println("entering handleRead");
+      return handleRead(a0,a1,a2);
+    case syscallExit:
 			System.out.println("enteirng exit");
 			handleExit(a0);
 			return 0;
@@ -543,6 +546,53 @@ public class UserProcess {
 		return bytesWritten;
 	}
 	
+	public int handleRead( int fd, int bufptr, int length){
+	//read count number of bytes into the buffer from fd
+  //success = return number of bytes read
+  //if file descriptor refers to file on disk, file position=fp+numOfBytesRead
+  //
+  //not error if numOfBytesRead < length 
+  //if on disk then EOF else if stream then not enough bytes available atm
+  //
+  //return -1 on error and new file position is undefined
+  //if file descriptor invalid
+  //if part of file buffer is read only
+  //if network stream is terminated by remote host and no more data
+  
+		// length should be positive
+		if(length <= 0){
+			System.out.println("lenth is negative :(");
+			return -1;
+		}
+		
+		//check if file descriptor is in bound (16)
+		if(fd >= numberOfFD){
+                        System.out.println("fd is out of bounds");
+			return -1;
+		}
+		
+		//checks validity of fd slot and openfile 
+		if(this.fdArray[fd] == null){
+			System.out.println("slot is null");
+			return -1;
+		}
+	 	if(this.fdArray[bufptr].file==null){
+			System.out.println("file is null");
+			return -1;
+		}	
+		//create local buffer
+		byte buffer [] = new byte[length];
+	//	System.out.println("I just made a buffer");
+		//read process's VA and copy process's buffer into local buffer
+		int bytesTransferred = readVirtualMemory(fd,buffer);
+		
+		//create Openfile object to write to and return the bytes written
+		OpenFile of = this.fdArray[bufptr].file;
+		
+		int bytesWritten = of.write(buffer, 0,bytesTransferred);
+	//	System.out.println("This is the end");	
+		return bytesWritten;
+	}
 
 	/**
 	 * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
