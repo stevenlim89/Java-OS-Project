@@ -29,6 +29,9 @@ public class UserProcess {
 		pageTable = new TranslationEntry[numPhysPages];
 		for (int i = 0; i < numPhysPages; i++)
 			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
+		
+		this.fdArray[0] = new FileDescriptor(UserKernel.console.openForWriting());
+		this.fdArray[1] = new FileDescriptor(UserKernel.console.openForWriting());	
 	}
 
 	/**
@@ -418,7 +421,7 @@ public class UserProcess {
 		case syscallOpen:
 			return handleOpen(a0);
 		case syscallWrite:
-			System.out.println("entering handleWrite");
+	//		System.out.println("entering handleWrite");
 			return handleWrite(a0,a1,a2);
 		case syscallExit:
 			System.out.println("enteirng exit");
@@ -504,9 +507,9 @@ public class UserProcess {
 	}
 
 	public int handleWrite( int fd, int bufptr, int length){
-		System.out.println("hello");
+	//	System.out.println("hello");
 		// length should be positive
-		if(length < 0){
+		if(length <= 0){
 			System.out.println("lenth is negative :(");
 			return -1;
 		}
@@ -518,24 +521,25 @@ public class UserProcess {
 		}
 		
 		//checks validity of fd slot and openfile 
-		if(fdArray[fd] == null){
+		if(this.fdArray[fd] == null){
 			System.out.println("slot is null");
 			return -1;
 		}
-	 	if(fdArray[fd].file==null){
+	 	if(this.fdArray[fd].file==null){
 			System.out.println("file is null");
 			return -1;
 		}	
 		//create local buffer
 		byte buffer [] = new byte[length];
-		System.out.println("I just made a buffer");
+	//	System.out.println("I just made a buffer");
 		//read process's VA and copy process's buffer into local buffer
 		int bytesTransferred = readVirtualMemory(bufptr,buffer);
 		
 		//create Openfile object to write to and return the bytes written
-		OpenFile of = fdArray[fd].file;
+		OpenFile of = this.fdArray[fd].file;
 		
 		int bytesWritten = of.write(buffer, 0,bytesTransferred);
+	//	System.out.println("This is the end");	
 		return bytesWritten;
 	}
 	
