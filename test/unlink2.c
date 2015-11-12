@@ -3,10 +3,12 @@
 int
 main (int argc, char *argv[])
 {
-	char *file = "file.txt";	
-	int test = creat(file);
+	char *file = "work.txt";	
+	/*int test = creat(file);
+	printf("Test at creat: %d\n", test);
 	test = open(file);
-	test = unlink(file);
+	printf("Test at open: %d\n", test);*/
+	int test = unlink(file);
 
 	printf("Should not work and be negative one:   %d", test);
 

@@ -578,7 +578,6 @@ public class UserProcess {
 	}
 	
 	public int handleRead( int fd, int bufptr, int length){  
-		System.out.println("I AM BUFPTR: " + bufptr);
 		// length should be positive
 	
 		if(length < 0){
@@ -678,10 +677,8 @@ public class UserProcess {
 
 		if(link == null){
 			boolean remove = UserKernel.fileSystem.remove(name);
-
 			if(!remove)
 				return -1;
-
 		}
 		else{
 			link.Unlink = true;
