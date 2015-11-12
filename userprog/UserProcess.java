@@ -284,7 +284,7 @@ public class UserProcess {
 	 * @return <tt>true</tt> if the sections were successfully loaded.
 	 */
 	protected boolean loadSections() {
-		if (numPages > Machine.processor().getNumPhysPages()) {
+		if (numPages >  Machine.processor().getNumPhysPages()){
 			coff.close();
 			Lib.debug(dbgProcess, "\tinsufficient physical memory");
 			return false;
@@ -444,6 +444,9 @@ public class UserProcess {
 	// Handler for open system call
 	private int handleOpen(int address) {
 		//get name of the file
+		if(address == 0){
+			return -1;
+		}
 		String name  = readVirtualMemoryString(address, maxLength);
 		// check if file is in virtual memory
 		if(name == null){
@@ -482,6 +485,9 @@ public class UserProcess {
 	
 	public int handleCreate(int address) {
 		//get name of the file
+		if(address == 0){
+			return -1;
+		}
 		String name = readVirtualMemoryString(address,maxLength);
 		//check validity of name
 		if(name==null){
@@ -523,9 +529,11 @@ public class UserProcess {
 		return;
 	}
 
-	public int handleWrite( int fd, int bufptr, int length){
-	 		
+	public int handleWrite( int fd, int bufptr, int length){		
 		// length should be positive
+		if(bufptr >= Machine.processor().getNumPhysPages()){
+			return -1;
+		}
 		if(length < 0){
 			System.out.println("length is negative :(");
 			return -1;
@@ -552,6 +560,10 @@ public class UserProcess {
 	
 		//read process's VA and copy process's buffer into local buffer
 		int bytesTransferred = readVirtualMemory(bufptr,buffer);
+		
+		if(bytesTransferred < 0){
+			return -1;
+		}
 		//create Openfile object to write to and return the bytes written
 		OpenFile of = this.fdArray[fd].file;
 		
@@ -560,12 +572,14 @@ public class UserProcess {
 		if(bytesWritten < 0){
 			return -1;
 		}
-
+		
 		return bytesWritten;
 	}
 	
 	public int handleRead( int fd, int bufptr, int length){  
+		System.out.println("I AM BUFPTR: " + bufptr);
 		// length should be positive
+	
 		if(length < 0){
 			System.out.println("length is negative :(");
 			return -1;
@@ -593,13 +607,19 @@ public class UserProcess {
 		OpenFile of = this.fdArray[fd].file;
 		 
 		int bytesRead = of.read(buffer,0,length);
+		
 		//check to see if buffer is invalid
 		if(bytesRead <0){
 			System.out.println("My bytes are negative!");
 			return -1;
 		}
 		//System.out.println("My write value is: " + writeVirtualMemory(bufptr,buffer));
-		return writeVirtualMemory(bufptr,buffer);
+		int written = writeVirtualMemory(bufptr,buffer);
+	
+		if(written < 0){
+			return -1;
+		}
+		return written;
 
 	}
 
