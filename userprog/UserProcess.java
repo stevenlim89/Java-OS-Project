@@ -421,12 +421,12 @@ public class UserProcess {
 		case syscallOpen:
 			return handleOpen(a0);
 		case syscallWrite:
-	//		System.out.println("entering handleWrite");
+			System.out.println("entering handleWrite");
 			return handleWrite(a0,a1,a2);
 		case syscallRead:
-      System.out.println("entering handleRead");
-      return handleRead(a0,a1,a2);
-    case syscallExit:
+      		//	System.out.println("entering handleRead");
+      			return handleRead(a0,a1,a2);
+    		case syscallExit:
 			System.out.println("enteirng exit");
 			handleExit(a0);
 			return 0;
@@ -512,15 +512,17 @@ public class UserProcess {
 	}
 
 	public int handleWrite( int fd, int bufptr, int length){
-	//	System.out.println("hello");
+	 	System.out.println("I am in handleWrite");
+		System.out.println("length : " + length);
 		// length should be positive
-		if(length <= 0){
+		if(length < 0){
 			System.out.println("lenth is negative :(");
 			return -1;
 		}
 		
 		//check if file descriptor is in bound (16)
-		if(fd >= numberOfFD){
+		
+		if(fd >= numberOfFD || fd <= -1){
                         System.out.println("fd is out of bounds");
 			return -1;
 		}
@@ -544,32 +546,27 @@ public class UserProcess {
 		OpenFile of = this.fdArray[fd].file;
 		
 		int bytesWritten = of.write(buffer, 0,bytesTransferred);
-	//	System.out.println("This is the end");	
+		System.out.println("Byteswritten :" + bytesWritten);	
+		if(bytesWritten < 0){
+			return -1;
+		}
+
 		return bytesWritten;
 	}
 	
-	public int handleRead( int fd, int bufptr, int length){
-	//read count number of bytes into the buffer from fd
-  //success = return number of bytes read
-  //if file descriptor refers to file on disk, file position=fp+numOfBytesRead
-  //
-  //not error if numOfBytesRead < length 
-  //if on disk then EOF else if stream then not enough bytes available atm
-  //
-  //return -1 on error and new file position is undefined
-  //if file descriptor invalid
-  //if part of file buffer is read only
-  //if network stream is terminated by remote host and no more data
-  
+	public int handleRead( int fd, int bufptr, int length){  
+		System.out.println("I entered handleRead");
+		//System.out.println("length is: " + length);
+
 		// length should be positive
-		if(length <= 0){
+		if(length < 0){
 			System.out.println("length is negative :(");
 			return -1;
 		}
-		
+		//System.out.println("fd value1 = " + fd);
 		//check if file descriptor is in bound (16)
-		if(fd >= numberOfFD){
-                        System.out.println("fd is out of bounds");
+		if(fd >= numberOfFD || fd <= -1){
+                        System.out.println("fd value = " + fd);
 			return -1;
 		}
 		
@@ -591,19 +588,14 @@ public class UserProcess {
 		 
 		int bytesRead = of.read(buffer,0,length);
 		
+		//check to see if buffer is invalid
 		if(bytesRead <0){
+			System.out.println("My bytes are negative!");
 			return -1;
 		}
+		//System.out.println("My write value is: " + writeVirtualMemory(bufptr,buffer));
 		return writeVirtualMemory(bufptr,buffer);
 
-		//int bytesTransferred = readVirtualMemory(fd,buffer);
-		
-		//create Openfile object to read from and return the bytes written
-		//OpenFile of = this.fdArray[bufptr].file;
-		
-		//int bytesWritten = of.read(buffer, 0,bytesTransferred);
-	//	System.out.println("This is the end");	
-		//return bytesWritten;
 	}
 
 	/**
