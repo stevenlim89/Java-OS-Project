@@ -563,7 +563,7 @@ public class UserProcess {
   
 		// length should be positive
 		if(length <= 0){
-			System.out.println("lenth is negative :(");
+			System.out.println("length is negative :(");
 			return -1;
 		}
 		
@@ -578,7 +578,7 @@ public class UserProcess {
 			System.out.println("slot is null");
 			return -1;
 		}
-	 	if(this.fdArray[bufptr].file==null){
+	 	if(this.fdArray[fd].file==null){
 			System.out.println("file is null");
 			return -1;
 		}	
@@ -586,14 +586,24 @@ public class UserProcess {
 		byte buffer [] = new byte[length];
 	//	System.out.println("I just made a buffer");
 		//read process's VA and copy process's buffer into local buffer
-		int bytesTransferred = readVirtualMemory(fd,buffer);
 		
-		//create Openfile object to write to and return the bytes written
-		OpenFile of = this.fdArray[bufptr].file;
+		OpenFile of = this.fdArray[fd].file;
+		 
+		int bytesRead = of.read(buffer,0,length);
 		
-		int bytesWritten = of.write(buffer, 0,bytesTransferred);
+		if(bytesRead <0){
+			return -1;
+		}
+		return writeVirtualMemory(bufptr,buffer);
+
+		//int bytesTransferred = readVirtualMemory(fd,buffer);
+		
+		//create Openfile object to read from and return the bytes written
+		//OpenFile of = this.fdArray[bufptr].file;
+		
+		//int bytesWritten = of.read(buffer, 0,bytesTransferred);
 	//	System.out.println("This is the end");	
-		return bytesWritten;
+		//return bytesWritten;
 	}
 
 	/**
