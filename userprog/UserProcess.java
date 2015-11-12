@@ -531,9 +531,10 @@ public class UserProcess {
 
 	public int handleWrite( int fd, int bufptr, int length){		
 		// length should be positive
-		if(bufptr >= Machine.processor().getNumPhysPages()){
+		if(bufptr > Machine.processor().getNumPhysPages() * pageSize){
 			return -1;
 		}
+		
 		if(length < 0){
 			System.out.println("length is negative :(");
 			return -1;
