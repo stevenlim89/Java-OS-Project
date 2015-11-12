@@ -443,68 +443,78 @@ public class UserProcess {
 
 	// Handler for open system call
 	private int handleOpen(int address) {
-		String s = readVirtualMemoryString(address, maxLength);
-		
+		//get name of the file
+		String name  = readVirtualMemoryString(address, maxLength);
 		// check if file is in virtual memory
-		if(s == null)
+		if(name == null){
 			return -1;
-		
-		FileLinks fl = filemap.get(s);
+		}
+		//find Filelink associated with name in hashmap
+		FileLinks fl = filemap.get(name);
+		//check if it is linked when the file is not null
 		if(fl != null){
 			if(fl.Unlink){
 				return -1;
 			}
 		}
-		OpenFile file = ThreadedKernel.fileSystem.open(s, false);
-		
+		//create an Openfile with the filename, not truncated
+		OpenFile file = ThreadedKernel.fileSystem.open(name, false);
 		// check if file exists in the file system
 		if(file == null)
 			return -1;
-		
-		int slot = findEmptySlot();
-		
+
+	 	int slot = findEmptySlot();	
 		// check to see if the file descriptor array is full or not
 		if(slot == -1)
 			return -1;
-		
+
+			
+		// if it is null, add to hashmap, wait is this necessary...
 		if(fl == null){
-			filemap.put(s, new FileLinks());
-		}
-		
+			filemap.put(name, new FileLinks());
+			//increment count? BUT WHAT IS COUNT?? lol 
+		}	
+				
 		this.fdArray[slot] = new FileDescriptor(file);
 		
 		return slot;
 	}
 	
 	public int handleCreate(int address) {
-		String s = readVirtualMemoryString(address,maxLength);
-		
-		if(s==null)
+		//get name of the file
+		String name = readVirtualMemoryString(address,maxLength);
+		//check validity of name
+		if(name==null){
 			return -1;
-		
-		FileLinks fl = filemap.get(s);
+		}
+		//get the FileLink associated with name
+		FileLinks fl = filemap.get(name);
+		//check if the filelinked is unlinked, if it is, return -1	
 		if(fl != null){
 			if(fl.Unlink){
 				return -1;
 			}
 		}
-		
-		OpenFile file = ThreadedKernel.fileSystem.open(s,true);
-		
-		if(file==null)
+		//Create an openfile that is truncated (empty basically)
+		OpenFile file = ThreadedKernel.fileSystem.open(name,true);
+		//check file for any errors
+		if(file==null){
 			return -1;
-		
-		int slot = findEmptySlot();
-		
-		if(slot ==-1)
-			return -1;
-		
-		if(fl == null){
-			filemap.put(s, new FileLinks());
 		}
 		
+		//find an empty slot inside the fdArray
+		int slot = findEmptySlot();
+		//if there is an erro, return -1
+		if(slot == -1){
+			return -1;
+		}
+			//otherwise check that the fileLink is null and put it in the 
+		//hasmap
+		if(fl == null){
+			filemap.put(name, new FileLinks());
+		}
 		this.fdArray[slot] = new FileDescriptor(file);
-		
+		//return where it is created
 		return slot;
 	}
 	public void handleExit(int status){
@@ -517,7 +527,7 @@ public class UserProcess {
 	 		
 		// length should be positive
 		if(length < 0){
-			System.out.println("lenth is negative :(");
+			System.out.println("length is negative :(");
 			return -1;
 		}
 		
@@ -593,19 +603,42 @@ public class UserProcess {
 
 	}
 
-	private int handleClose(int fileDescriptor){
-		if(fileDescriptor >= numberOfFD || fileDescriptor < 0)
+	private int handleClose(int fd){
+		//checks validity of fd (in bound, non negative)
+		if(fd >= numberOfFD || fd < 0){
 			return -1;
-
-		FileDescriptor temp = this.fdArray[fileDescriptor];
-
-		if(temp == null)
+		}
+		FileDescriptor fdObj = fdArray[fd];
+		//checks if fd object is valid 
+		if(fdObj == null){
 			return -1;
-
-		temp.file.close();
-
-		this.fdArray[fileDescriptor] = null;
-
+		}		
+		//close openFile and release associated resources whether
+		//or not it is a file or a stream. must close both similarly 
+		fdObj.file.close();
+		//slot at fd is null so it can be reused since the file
+		//associated with it is closed
+		fdArray[fd] = null;
+		//Get name of the filename
+		String name = fdObj.file.getName();
+		//Use filename to find the fileLink associated with the name
+		//in the hashmap
+		FileLinks fl = filemap.get(name);
+		//if filelink is null, it is a stream
+		if(fl == null){
+			return 0;	
+		}
+		//otherwise fl is a file. you want to reduce the open counter
+		//checks if it has been opened before?
+		if(fl.opened == 1){
+			//remove from the hashmap since we closed it
+			filemap.remove(name);
+			//if it is unlinked == false? so it is linked
+			//if(fl.Unlink){		
+		}
+		else{
+			fl.opened -= 1;
+		}
 		return 0;
 	}
 	
@@ -664,6 +697,7 @@ public class UserProcess {
 	private class FileDescriptor{
 		public FileDescriptor(OpenFile f){
 			this.file = f;
+			
 		}
 		
 		private OpenFile file = null;
@@ -672,6 +706,7 @@ public class UserProcess {
 	/** FileLinks Class*/
 	private class FileLinks{
 		public FileLinks(){}
+		private int opened = 1;
 		private boolean Unlink = false;
 	}
 	
