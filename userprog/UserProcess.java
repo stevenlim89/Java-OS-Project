@@ -430,6 +430,10 @@ public class UserProcess {
 			return 0;
 	 	case syscallCreate:
 			return handleCreate(a0);	
+		case syscallClose:
+			return handleClose(a0);
+		case syscallUnlink:
+			return handleUnlink(a0);	
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 			Lib.assertNotReached("Unknown system call!");
@@ -589,6 +593,45 @@ public class UserProcess {
 
 	}
 
+	private int handleClose(int fileDescriptor){
+		if(fileDescriptor >= numberOfFD || fileDescriptor < 0)
+			return -1;
+
+		FileDescriptor temp = this.fdArray[fileDescriptor];
+
+		if(temp == null)
+			return -1;
+
+		temp.file.close();
+
+		this.fdArray[fileDescriptor] = null;
+
+		return 0;
+	}
+	
+
+	private int handleUnlink(int nameAddress){
+		String name = readVirtualMemoryString(nameAddress, maxLength);
+
+		if(name == null)
+			return -1;
+
+		FileLinks link = filemap.get(name);
+
+		if(link == null){
+			boolean remove = UserKernel.fileSystem.remove(name);
+
+			if(!remove)
+				return -1;
+
+		}
+		else{
+			link.Unlink = true;
+		}
+
+		return 0;
+	}
+		
 	/**
 	 * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
 	 * . The <i>cause</i> argument identifies which exception occurred; see the
