@@ -430,6 +430,8 @@ public class UserProcess {
 			System.out.println("enteirng exit");
 			handleExit(a0);
 			return 0;
+	 	case syscallCreate:
+			return handleCreate(a0);	
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 			Lib.assertNotReached("Unknown system call!");
