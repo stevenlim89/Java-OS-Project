@@ -632,9 +632,13 @@ public class UserProcess {
 		//checks if it has been opened before?
 		if(fl.opened == 1){
 			//remove from the hashmap since we closed it
-			filemap.remove(name);
-			//if it is unlinked == false? so it is linked
-			//if(fl.Unlink){		
+			if(name != null){
+				filemap.remove(name);
+				if(fl.Unlink){
+					if(!UserKernel.fileSystem.remove(name))
+						return -1;
+				}
+			}	
 		}
 		else{
 			fl.opened -= 1;
