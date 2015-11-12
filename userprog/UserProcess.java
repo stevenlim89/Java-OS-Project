@@ -30,7 +30,7 @@ public class UserProcess {
 		for (int i = 0; i < numPhysPages; i++)
 			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
 		
-		this.fdArray[0] = new FileDescriptor(UserKernel.console.openForWriting());
+		this.fdArray[0] = new FileDescriptor(UserKernel.console.openForReading());
 		this.fdArray[1] = new FileDescriptor(UserKernel.console.openForWriting());	
 	}
 
@@ -421,11 +421,9 @@ public class UserProcess {
 		case syscallOpen:
 			return handleOpen(a0);
 		case syscallWrite:
-			System.out.println("entering handleWrite");
 			return handleWrite(a0,a1,a2);
 		case syscallRead:
-      		//	System.out.println("entering handleRead");
-      			return handleRead(a0,a1,a2);
+         		return handleRead(a0,a1,a2);
     		case syscallExit:
 			System.out.println("enteirng exit");
 			handleExit(a0);
@@ -512,8 +510,7 @@ public class UserProcess {
 	}
 
 	public int handleWrite( int fd, int bufptr, int length){
-	 	System.out.println("I am in handleWrite");
-		System.out.println("length : " + length);
+	 		
 		// length should be positive
 		if(length < 0){
 			System.out.println("lenth is negative :(");
@@ -522,7 +519,7 @@ public class UserProcess {
 		
 		//check if file descriptor is in bound (16)
 		
-		if(fd >= numberOfFD || fd <= -1){
+		if(fd > numberOfFD || fd < 0){
                         System.out.println("fd is out of bounds");
 			return -1;
 		}
@@ -538,15 +535,14 @@ public class UserProcess {
 		}	
 		//create local buffer
 		byte buffer [] = new byte[length];
-	//	System.out.println("I just made a buffer");
+	
 		//read process's VA and copy process's buffer into local buffer
 		int bytesTransferred = readVirtualMemory(bufptr,buffer);
-		
 		//create Openfile object to write to and return the bytes written
 		OpenFile of = this.fdArray[fd].file;
 		
 		int bytesWritten = of.write(buffer, 0,bytesTransferred);
-		System.out.println("Byteswritten :" + bytesWritten);	
+		
 		if(bytesWritten < 0){
 			return -1;
 		}
@@ -555,17 +551,14 @@ public class UserProcess {
 	}
 	
 	public int handleRead( int fd, int bufptr, int length){  
-		System.out.println("I entered handleRead");
-		//System.out.println("length is: " + length);
-
 		// length should be positive
 		if(length < 0){
 			System.out.println("length is negative :(");
 			return -1;
 		}
-		//System.out.println("fd value1 = " + fd);
+		
 		//check if file descriptor is in bound (16)
-		if(fd >= numberOfFD || fd <= -1){
+		if(fd > numberOfFD || fd < 0){
                         System.out.println("fd value = " + fd);
 			return -1;
 		}
@@ -581,13 +574,11 @@ public class UserProcess {
 		}	
 		//create local buffer
 		byte buffer [] = new byte[length];
-	//	System.out.println("I just made a buffer");
-		//read process's VA and copy process's buffer into local buffer
-		
+
+		//read process's VA and copy process's buffer into local buffer		
 		OpenFile of = this.fdArray[fd].file;
 		 
 		int bytesRead = of.read(buffer,0,length);
-		
 		//check to see if buffer is invalid
 		if(bytesRead <0){
 			System.out.println("My bytes are negative!");
