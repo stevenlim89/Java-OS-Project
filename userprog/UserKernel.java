@@ -22,7 +22,7 @@ public class UserKernel extends ThreadedKernel {
 	 */
 	public void initialize(String[] args) {
 		super.initialize(args);
-
+		lock = new Lock();
 		console = new SynchConsole(Machine.console());
 
 		Machine.processor().setExceptionHandler(new Runnable() {
@@ -101,6 +101,31 @@ public class UserKernel extends ThreadedKernel {
 
 		KThread.currentThread().finish();
 	}
+	
+	public static int freeSpace(){
+		int number;
+
+		lock.acquire();
+		
+		if(availablePages.isEmpty()){
+			number = -1;
+		}else{
+			// does it matter which the head of the list or do I need a specific index??	
+			number = availablePages.remove();
+		}
+		lock.release();	
+
+		return number;
+	} 
+
+	public static void releaseSpace(int number){
+		lock.acquire();
+		
+		// adds newly available page to linked list for use by other processes.
+		availablePages.add(number);
+
+		lock.release();
+	}
 
 	/**
 	 * Terminate this kernel. Never returns.
@@ -111,9 +136,11 @@ public class UserKernel extends ThreadedKernel {
 
 	/** Globally accessible reference to the synchronized console. */
 	public static SynchConsole console;
-
+	
 	public static LinkedList<Integer> availablePages = new LinkedList<Integer>();	
 	
 	// dummy variables to make javac smarter
 	private static Coff dummy1 = null;
+	
+	private static Lock lock;
 }

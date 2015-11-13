@@ -223,6 +223,9 @@ public class UserProcess {
 			if(!tableEntry.valid)
 				return -1;			
 			
+			if(tableEntry.readOnly)
+				return -1;
+	
 			// Mark as dirty since we are modifying it
 			tableEntry.dirty = true;
 			
@@ -372,6 +375,12 @@ public class UserProcess {
 	 * Release any resources allocated by <tt>loadSections()</tt>.
 	 */
 	protected void unloadSections() {
+		for(int i = 0; i < pageTable.length; i++){
+			UserKernel.releaseSpace(pageTable[i].ppn);
+			pageTable[i] = null;
+		}
+		pageTable = null;
+		coff.close();
 	}
 
 	/**
