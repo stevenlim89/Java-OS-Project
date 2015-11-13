@@ -136,15 +136,43 @@ public class UserProcess {
 				&& offset + length <= data.length);
 
 		byte[] memory = Machine.processor().getMemory();
+	
+		int virtualPN = Processor.pageFromAddress(vaddr);
+		int virtualOffset = Processor.offsetFromAddress(vaddr);
 
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
-			return 0;
+		int returnBytes = 0;
+		int amount = 0;
 
-		int amount = Math.min(length, memory.length - vaddr);
-		System.arraycopy(memory, vaddr, data, offset, amount);
+		while(length > 0){
+			if(virtualPN < 0 || virtualPN >= numPages)
+				return -1;
 
-		return amount;
+			TranslationEntry tableEntry = pageTable[virtualPN];
+						
+			if(!tableEntry.valid)
+				return -1;			
+			
+			// if it is a valid entry, mark as being in use
+			tableEntry.used = true;
+
+			// need to get whatever is stored in physical address and copy it to data array
+			int pa = virtualOffset + (tableEntry.ppn*pageSize);
+			
+			// for now, just assume that virtual addresses equal physical addresses
+			if (pa < 0 || pa >= memory.length)
+				return returnBytes;
+
+			amount = Math.min(length, memory.length - pa);
+			System.arraycopy(memory, pa, data, offset, amount);
+
+			returnBytes += amount;
+			offset += amount;
+			virtualPN++;
+			virtualOffset = 0;
+			length -= amount;	
+		}
+
+		return returnBytes;
 	}
 
 	/**
@@ -179,14 +207,46 @@ public class UserProcess {
 
 		byte[] memory = Machine.processor().getMemory();
 
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
-			return 0;
+		int virtualPN = Processor.pageFromAddress(vaddr);
+		int virtualOffset = Processor.offsetFromAddress(vaddr);
 
-		int amount = Math.min(length, memory.length - vaddr);
-		System.arraycopy(data, offset, memory, vaddr, amount);
+		int returnBytes = 0;
+		int amount = 0;
 
-		return amount;
+		// loop for multiple processes
+		while(length > 0){
+			if(virtualPN < 0 || virtualPN >= numPages)
+				return -1;
+
+			TranslationEntry tableEntry = pageTable[virtualPN];
+						
+			if(!tableEntry.valid)
+				return -1;			
+			
+			// Mark as dirty since we are modifying it
+			tableEntry.dirty = true;
+			
+			// if it is a valid entry, mark as being in use
+			tableEntry.used = true;
+
+			// need to get whatever is stored in physical address and copy it to data array
+			int pa = virtualOffset + (tableEntry.ppn*pageSize);
+			
+			// for now, just assume that virtual addresses equal physical addresses
+			if (pa < 0 || pa >= memory.length)
+				return returnBytes;
+			
+			amount = Math.min(length, memory.length - pa);
+			System.arraycopy(data, offset, memory, pa, amount);
+
+			virtualOffset = 0;
+			offset += amount;
+			returnBytes += amount;
+			virtualPN++;
+			length -= amount;			
+		}
+
+		return returnBytes;
 	}
 
 	/**
