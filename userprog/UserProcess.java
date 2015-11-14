@@ -6,6 +6,7 @@ import nachos.userprog.*;
 
 import java.io.EOFException;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 
 /**
@@ -31,7 +32,16 @@ public class UserProcess {
 			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
 		
 		this.fdArray[0] = new FileDescriptor(UserKernel.console.openForReading());
-		this.fdArray[1] = new FileDescriptor(UserKernel.console.openForWriting());	
+		this.fdArray[1] = new FileDescriptor(UserKernel.console.openForWriting());
+		// Keep track of all new processes made. increment counter after creation
+		if(userProcessList.isEmpty()){
+			root = true;
+		}
+		else{
+			root = false;
+		}
+		userProcessList.add(userProcessCounter);
+		userProcessCounter++;	
 	}
 
 	/**
@@ -145,12 +155,12 @@ public class UserProcess {
 
 		while(length > 0){
 			if(virtualPN < 0 || virtualPN >= numPages)
-				return -1;
+				return returnBytes; 
 
 			TranslationEntry tableEntry = pageTable[virtualPN];
 						
 			if(!tableEntry.valid)
-				return -1;			
+				return returnBytes;			
 			
 			// if it is a valid entry, mark as being in use
 			tableEntry.used = true;
@@ -166,7 +176,7 @@ public class UserProcess {
 			System.arraycopy(memory, pa, data, offset, amount);
 
 			returnBytes += amount;
-			offset += amount;
+			//offset += amount;
 			virtualPN++;
 			virtualOffset = 0;
 			length -= amount;	
@@ -216,15 +226,15 @@ public class UserProcess {
 		// loop for multiple processes
 		while(length > 0){
 			if(virtualPN < 0 || virtualPN >= numPages)
-				return -1;
+				return returnBytes;
 
 			TranslationEntry tableEntry = pageTable[virtualPN];
 						
 			if(!tableEntry.valid)
-				return -1;			
+				return returnBytes;			
 			
 			if(tableEntry.readOnly)
-				return -1;
+				return returnBytes;
 	
 			// Mark as dirty since we are modifying it
 			tableEntry.dirty = true;
@@ -243,7 +253,7 @@ public class UserProcess {
 			System.arraycopy(data, offset, memory, pa, amount);
 
 			virtualOffset = 0;
-			offset += amount;
+			//offset += amount;
 			returnBytes += amount;
 			virtualPN++;
 			length -= amount;			
@@ -316,6 +326,18 @@ public class UserProcess {
 		// and finally reserve 1 page for arguments
 		numPages++;
 
+		/* need to allocate the correct amount of pageTable space depending on the number of pages that was made during load. 
+ 		* Which is the length of the sections plus the stack pages plus the arguments
+		*/
+
+		// Each process should have their own page table so must make new one for each
+		pageTable = new TranslationEntry[numPages];
+
+		// map each entry to a specific place in physical memory
+		for(int i = 0; i < numPages; i++){
+			pageTable[i] = new TranslationEntry(i, UserKernel.takeSpace(), true, false, false, false);
+		}
+		
 		if (!loadSections())
 			return false;
 
@@ -364,7 +386,17 @@ public class UserProcess {
 				int vpn = section.getFirstVPN() + i;
 
 				// for now, just assume virtual addresses=physical addresses
-				section.loadPage(i, vpn);
+				//Need physical page number that corresponds to vpn
+				TranslationEntry entry = pageTable[vpn];
+				
+				// Check if it is a read only. if it is, wont be able to write
+				if(section.isReadOnly()){
+					entry.readOnly = true;
+				}else{
+					entry.readOnly = false;
+				}
+				
+				section.loadPage(i, entry.ppn);
 			}
 		}
 
@@ -375,10 +407,13 @@ public class UserProcess {
 	 * Release any resources allocated by <tt>loadSections()</tt>.
 	 */
 	protected void unloadSections() {
+		// set every entry in page table to null and release physical memory
 		for(int i = 0; i < pageTable.length; i++){
-			UserKernel.releaseSpace(pageTable[i].ppn);
+			UserKernel.addSpace(pageTable[i].ppn);
 			pageTable[i] = null;
 		}
+		
+		// set the page table to null for good measure
 		pageTable = null;
 		coff.close();
 	}
@@ -411,7 +446,8 @@ public class UserProcess {
 	 */
 	private int handleHalt() {
 
-		Machine.halt();
+		if(root)
+			Machine.halt();
 
 		Lib.assertNotReached("Machine.halt() did not halt machine!");
 		return 0;
@@ -503,6 +539,10 @@ public class UserProcess {
 			return handleClose(a0);
 		case syscallUnlink:
 			return handleUnlink(a0);	
+		case syscallJoin:
+			return handleJoin(a0, a1);
+		case syscallExec:
+			return handleExec(a0, a1, a2);
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 			Lib.assertNotReached("Unknown system call!");
@@ -592,10 +632,19 @@ public class UserProcess {
 		//return where it is created
 		return slot;
 	}
+
 	public void handleExit(int status){
      		System.out.println("I finished!");
 		KThread.finish();
 		return;
+	}
+
+	public int handleExec(int file, int argc, int argv){
+		return 0;
+	}
+
+	public int handleJoin(int processID, int status){
+		return 0;
 	}
 
 	public int handleWrite( int fd, int bufptr, int length){		
@@ -738,12 +787,15 @@ public class UserProcess {
 
 	private int handleUnlink(int nameAddress){
 		String name = readVirtualMemoryString(nameAddress, maxLength);
-
+		
+		// check if it is a valid memory address
 		if(name == null)
 			return -1;
 
+		// Get filelink that corresponds to that name from map
 		FileLinks link = filemap.get(name);
 
+		// If not in map, then remove that link from system, else call unlink
 		if(link == null){
 			boolean remove = UserKernel.fileSystem.remove(name);
 			if(!remove)
@@ -838,12 +890,13 @@ public class UserProcess {
 	
 	/** Hashmap for pairing unlink boolean with file object */
 	private static HashMap<String, FileLinks> filemap = new HashMap<String, FileLinks>();
-	
+
+	private static boolean root = false;	
 	private FileDescriptor fdArray [] = new FileDescriptor [16];
 	private static final int maxLength = 256;
 	private static final int numberOfFD = 16;
-	
+	private static int userProcessCounter = 0;
 	private static final int pageSize = Processor.pageSize;
-
+	private static LinkedList<Integer> userProcessList = new LinkedList<Integer>();
 	private static final char dbgProcess = 'a';
 }

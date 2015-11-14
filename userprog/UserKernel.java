@@ -24,12 +24,18 @@ public class UserKernel extends ThreadedKernel {
 		super.initialize(args);
 		lock = new Lock();
 		console = new SynchConsole(Machine.console());
+		
+		// Need to initialize the list with the number of available pages which would be all of them in this case.
+		for(int i = 0; i < Machine.processor().getNumPhysPages(); i++){
+			availablePages.add(i);
+		}
 
 		Machine.processor().setExceptionHandler(new Runnable() {
 			public void run() {
 				exceptionHandler();
 			}
 		});
+
 	}
 
 	/**
@@ -102,7 +108,7 @@ public class UserKernel extends ThreadedKernel {
 		KThread.currentThread().finish();
 	}
 	
-	public static int freeSpace(){
+	public static int takeSpace(){
 		int number;
 
 		lock.acquire();
@@ -118,7 +124,7 @@ public class UserKernel extends ThreadedKernel {
 		return number;
 	} 
 
-	public static void releaseSpace(int number){
+	public static void addSpace(int number){
 		lock.acquire();
 		
 		// adds newly available page to linked list for use by other processes.
