@@ -7,6 +7,7 @@ import nachos.userprog.*;
 import java.io.EOFException;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.ArrayList;
 
 
 /**
@@ -34,12 +35,15 @@ public class UserProcess {
 		this.fdArray[0] = new FileDescriptor(UserKernel.console.openForReading());
 		this.fdArray[1] = new FileDescriptor(UserKernel.console.openForWriting());
 		// Keep track of all new processes made. increment counter after creation
+		// root process should be first process that instantiates a user process
 		if(userProcessList.isEmpty()){
 			root = true;
 		}
 		else{
 			root = false;
 		}
+
+		uniqueID = userProcessCounter;
 		userProcessList.add(userProcessCounter);
 		userProcessCounter++;	
 	}
@@ -891,12 +895,29 @@ public class UserProcess {
 	/** Hashmap for pairing unlink boolean with file object */
 	private static HashMap<String, FileLinks> filemap = new HashMap<String, FileLinks>();
 
-	private static boolean root = false;	
+	// flag to check if a process is the root process
+	private static boolean root = false;
+
+	// unique id given to a process upon creation
+	private static int uniqueID = 0;
+
+	// array to keep track of all file descriptors	
 	private FileDescriptor fdArray [] = new FileDescriptor [16];
+
+	// max length of a buffer
 	private static final int maxLength = 256;
+
+	// the max number of file descriptors available in nachos
 	private static final int numberOfFD = 16;
+
+	// counter to count the number of processes 
 	private static int userProcessCounter = 0;
+
+	// number of pages in the nacho system
 	private static final int pageSize = Processor.pageSize;
+
+	// list to keep track of all the processes and their unique ids. Might remove in favor of a hashmap.
 	private static LinkedList<Integer> userProcessList = new LinkedList<Integer>();
+
 	private static final char dbgProcess = 'a';
 }
