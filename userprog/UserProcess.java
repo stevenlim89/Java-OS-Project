@@ -5,10 +5,7 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.ArrayList;
-
+import java.util.*;
 
 /**
  * Encapsulates the state of a user process that is not contained in its user
@@ -45,7 +42,10 @@ public class UserProcess {
 
 		uniqueID = userProcessCounter;
 		userProcessList.add(userProcessCounter);
-		userProcessCounter++;	
+		userProcessCounter++;
+		childTracker = new HashSet<Integer>();
+		threadTracker = new HashSet<KThread>();
+		joinTracker = new HashMap<Integer, KThread>();	
 	}
 
 	/**
@@ -648,7 +648,51 @@ public class UserProcess {
 	}
 
 	public int handleJoin(int processID, int status){
-		return 0;
+		//process ID must be postive
+		if(processID < 0){
+			return -1;
+		}
+		//child must be in set of child PIDs
+		if(childTracker.contains(processID) == false){
+			return -1;
+		}
+		// child user process must exist in set of user processes
+		if(processTracker.containsKey(processID) == false){
+			return -1;
+		}
+
+		//get the child user process from the set
+		UserProcess child = processTracker.get(processID);
+		
+		//create the currently running process
+		KThread currThread = KThread.currentThread();
+		
+		//this is basically readVirtualMemoryString + readVirtual
+		//Memrory but since readString returns a string... i wasn't
+		//sure what to do with it. so I pulled code from the methods
+		//to just get the pa to put the pa into the joinTracker
+		int virtualPN = Processor.pageFromAddress(status);
+		int virtualOff = Processor.offsetFromAddress(status);
+		if(virtualPN >= numPages){
+			return -1;
+		}
+		TranslationEntry tableEntry = pageTable[virtualPN];
+		if(tableEntry.valid == false || tableEntry.readOnly == true){
+			return -1;
+		}
+		int pa = virtualOff + (tableEntry.ppn * pageSize);
+		//WHY? LOL ????
+		child.joinTracker.put(pa,currThread);
+		//put current thread to sleep???
+		KThread.sleep();
+		//if child process exits normally, return 1, otherwise
+		//return 0
+		if(exitStatus.get(processID) == -1){
+			return 0;
+		}
+		else{
+			return 1;
+		}
 	}
 
 	public int handleWrite( int fd, int bufptr, int length){		
@@ -840,7 +884,7 @@ public class UserProcess {
 		}
 	}
 
-	/** File Descriptor Class */
+	/** lnrwsl - File Descriptor Class */
 	private class FileDescriptor{
 		public FileDescriptor(OpenFile f){
 			this.file = f;
@@ -850,7 +894,7 @@ public class UserProcess {
 		private OpenFile file = null;
 	}
 	
-	/** FileLinks Class*/
+	/** lnrwsl - FileLinks Class*/
 	private class FileLinks{
 		public FileLinks(){}
 		private int opened = 1;
@@ -859,7 +903,7 @@ public class UserProcess {
 	
 	
 	
-	/** Method to check for an empty slot in the file
+	/** lnrwsl - Method to check for an empty slot in the file
 	 * Descriptor Array.
 	 * @return
 	 */
@@ -876,48 +920,63 @@ public class UserProcess {
 		return -1;
 	}
 	
-	/** The program being run by this process. */
+	/** lnrwsl - The program being run by this process. */
 	protected Coff coff;
 
-	/** This process's page table. */
+	/** lnrwsl - This process's page table. */
 	protected TranslationEntry[] pageTable;
 
-	/** The number of contiguous pages occupied by the program. */
+	/** lnrwsl - The number of contiguous pages occupied by the program. */
 	protected int numPages;
 
-	/** The number of pages in the program's stack. */
+	/** lnrwsl - The number of pages in the program's stack. */
 	protected final int stackPages = 8;
 
 	private int initialPC, initialSP;
 
 	private int argc, argv;
 	
-	/** Hashmap for pairing unlink boolean with file object */
+	/** lnrwsl - Hashmap for pairing unlink boolean with file object */
 	private static HashMap<String, FileLinks> filemap = new HashMap<String, FileLinks>();
 
-	// flag to check if a process is the root process
+	/** lnrwsl - flag to check if a process is the root process */
 	private static boolean root = false;
 
-	// unique id given to a process upon creation
+	/** lnrwsl - unique id given to a process upon creation */
 	private static int uniqueID = 0;
 
-	// array to keep track of all file descriptors	
+	/** lnrwsl - array to keep track of all file descriptors */	
 	private FileDescriptor fdArray [] = new FileDescriptor [16];
 
-	// max length of a buffer
+	/** lnrwsl - max length of a buffer */
 	private static final int maxLength = 256;
 
-	// the max number of file descriptors available in nachos
+	/** lnrwsl - the max number of file descriptors available in nachos*/
 	private static final int numberOfFD = 16;
 
-	// counter to count the number of processes 
+	/** lnrwsl - counter to count the number of processes*/
 	private static int userProcessCounter = 0;
 
-	// number of pages in the nacho system
+	/** lnrwsl - number of pages in the nacho system */
 	private static final int pageSize = Processor.pageSize;
 
-	// list to keep track of all the processes and their unique ids. Might remove in favor of a hashmap.
+	/** lnrwsl - list to keep track of all the processes and their unique ids. Might remove in favor of a hashmap.*/
 	private static LinkedList<Integer> userProcessList = new LinkedList<Integer>();
+	
+	/** lnrwsl - Hashmap for pairing parent with its children */
+	private Set<Integer> childTracker;
+	
+	/** lnrwsl - Hashset of KThreads */
+	private Set<KThread> threadTracker;
+		
+	/** lnrwsl - Hashmap of KThreads and physical addresses */
+	private HashMap<Integer, KThread> joinTracker;
+
+	/** lnrwsl - HashMap of UserProcesses and its IDs */
+	private static HashMap<Integer, UserProcess> processTracker = new HashMap<Integer, UserProcess>(); 
+
+	/** lnrwsl - HashMap of exit status int and PID */
+	private static HashMap<Integer,Integer> exitStatus = new HashMap<Integer, Integer>();
 
 	private static final char dbgProcess = 'a';
 }
