@@ -644,8 +644,32 @@ public class UserProcess {
 
 	public void handleExit(int status){
      		System.out.println("I finished!");
-		KThread.finish();
+		//status returned to parent process for join syscall
+		exitStatus.put(uniqueID, status);
+		
+		//closes file descriptors
+		for(int i = 0; i < numberOfFD; i++){
+			handleClose(i);
+		}
+		//closes coff sections and releases physical pages
+		unloadSections();
+		
+		//for all children of processes,make parent null
+		if(this.parent != null){
+			this.parent.childTracker.remove(uniqueID); 
+		}
+		//keep track of active processes
+		childTracker.remove(uniqueID);
+		
+		//check if last active process to call terminate or finish 
+		if(childTracker.size() == 1){
+			Kernel.kernel.terminate();
+		}
+		else{ 
+			KThread.finish();
+		}
 		return;
+
 	}
 
 	public int handleExec(int file, int argc, int argv){
@@ -893,14 +917,14 @@ public class UserProcess {
 			
 		}
 		
-		private OpenFile file = null;
+		OpenFile file = null;
 	}
 	
 	/** lnrwsl - FileLinks Class*/
 	private class FileLinks{
 		public FileLinks(){}
-		private int opened = 1;
-		private boolean Unlink = false;
+		int opened = 1;
+		boolean Unlink = false;
 	}
 	
 	
