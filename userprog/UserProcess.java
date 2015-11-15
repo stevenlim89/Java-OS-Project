@@ -39,12 +39,13 @@ public class UserProcess {
 		else{
 			root = false;
 		}
-
+		
+		parent = null;
 		uniqueID = userProcessCounter;
 		userProcessList.add(userProcessCounter);
 		userProcessCounter++;
-		childTracker = new HashSet<Integer>();
-		threadTracker = new HashSet<KThread>();
+		childTracker = new HashMap<Integer, UserProcess>();
+		threadTracker = new ArrayList<KThread>();
 		joinTracker = new HashMap<Integer, KThread>();	
 	}
 
@@ -71,8 +72,12 @@ public class UserProcess {
 		if (!load(name, args))
 			return false;
 
-		new UThread(this).setName(name).fork();
+		UThread userThread = new UThread(this);
+		userThread.setName(name);
+		threadTracker.add(userThread);
+		userThread.fork();
 
+		childTracker.put(this.uniqueID, this);
 		return true;
 	}
 
@@ -653,19 +658,17 @@ public class UserProcess {
 			return -1;
 		}
 		//child must be in set of child PIDs
-		if(childTracker.contains(processID) == false){
-			return -1;
-		}
-		// child user process must exist in set of user processes
-		if(processTracker.containsKey(processID) == false){
+		if(childTracker.containsKey(processID) == false){
 			return -1;
 		}
 
 		//get the child user process from the set
-		UserProcess child = processTracker.get(processID);
+		UserProcess child = childTracker.get(processID);
 		
 		//create the currently running process
-		KThread currThread = KThread.currentThread();
+		//KThread currThread = KThread.currentThread();
+		UThread user = new UThread(child);
+		user.join();
 		
 		//this is basically readVirtualMemoryString + readVirtual
 		//Memrory but since readString returns a string... i wasn't
@@ -682,9 +685,8 @@ public class UserProcess {
 		}
 		int pa = virtualOff + (tableEntry.ppn * pageSize);
 		//WHY? LOL ????
-		child.joinTracker.put(pa,currThread);
-		//put current thread to sleep???
-		KThread.sleep();
+		// Comment out till we find out its purpose. (In exit)
+		//child.joinTracker.put(pa,currThread);
 		//if child process exits normally, return 1, otherwise
 		//return 0
 		if(exitStatus.get(processID) == -1){
@@ -948,6 +950,9 @@ public class UserProcess {
 	/** lnrwsl - array to keep track of all file descriptors */	
 	private FileDescriptor fdArray [] = new FileDescriptor [16];
 
+	/** lnrwsl - hashmap to keep track of child processes */
+	private static HashMap<Integer, UserProcess> childTracker;
+
 	/** lnrwsl - max length of a buffer */
 	private static final int maxLength = 256;
 
@@ -960,14 +965,17 @@ public class UserProcess {
 	/** lnrwsl - number of pages in the nacho system */
 	private static final int pageSize = Processor.pageSize;
 
+	/** lnrwsl - parent process */
+	private static UserProcess parent;
+
 	/** lnrwsl - list to keep track of all the processes and their unique ids. Might remove in favor of a hashmap.*/
 	private static LinkedList<Integer> userProcessList = new LinkedList<Integer>();
 	
 	/** lnrwsl - Hashmap for pairing parent with its children */
-	private Set<Integer> childTracker;
+	//private Set<Integer> childTracker;
 	
 	/** lnrwsl - Hashset of KThreads */
-	private Set<KThread> threadTracker;
+	private ArrayList<KThread> threadTracker;
 		
 	/** lnrwsl - Hashmap of KThreads and physical addresses */
 	private HashMap<Integer, KThread> joinTracker;
