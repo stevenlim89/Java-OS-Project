@@ -676,9 +676,11 @@ public class UserProcess {
 		byte [] buffer = new byte[4];
 		//create a new user process
 		UserProcess process = new UserProcess();
+		String s = readVirtualMemoryString(file, maxLength);	
+		String array [] = new String [0];
 		// execute with empty arguments?
-		if(process.execute(file, argv)==false){
-			return -1
+		if(process.execute(s, array)==false){
+			return -1;
 		}
 		else{
 			//return pid of child
