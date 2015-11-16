@@ -682,16 +682,16 @@ public class UserProcess {
 		for(int i = 0; i < argc; i++){
 			byte [] buffer = new byte[4];
 			//read first argument in argv
-			if(readVirtuaMemory(argv+(4*i), buffer) == 4){	
+			if(readVirtualMemory(argv+(4*i), buffer) == 4){	
         int vaddr = 0;
         int toAdd = 0;
         int shift = 100000000;
         //calculate address of strings in argv
-        for(int i = 0; i < buffer.length; i++){
+        for(int k = 0; k < buffer.length; k++){
 					//get the int at that byte
-          toAdd = (int)buffer[i];
+          toAdd = (int)buffer[k];
           //loop to shift the int appropriately
-          for(int j = 0; j < buffer.length-i; j++){
+          for(int j = 0; j < k; j++){
             toAdd = toAdd*shift;
           }
           //add partial address to complete address
