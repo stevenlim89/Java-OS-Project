@@ -673,13 +673,26 @@ public class UserProcess {
 	}
 
 	public int handleExec(int file, int argc, int argv){
-		byte [] buffer = new byte[4];
 		//create a new user process
 		UserProcess process = new UserProcess();
-		String s = readVirtualMemoryString(file, maxLength);	
-		String array [] = new String [0];
+		
+		String filename = readVirtualMemoryString(file, maxLength);	
+		
+		String args [] = new String [argc];
+		for(int i = 0; i < argc; i++){
+			byte [] buffer = new byte[4];
+			//read first argument in argv
+			if(readVirtuaMemory(argv+(4*i), buffer) == 4){
+				for(int i = 0; i < buffer.length; i++){
+					//calculating address of strings in argv
+
+					readVirtualMemoryString(int address, maxLength);
+				}
+			}
+		}
+			
 		// execute with empty arguments?
-		if(process.execute(s, array)==false){
+		if(process.execute(filename, array)==false){
 			return -1;
 		}
 		else{
