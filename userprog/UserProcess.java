@@ -682,17 +682,32 @@ public class UserProcess {
 		for(int i = 0; i < argc; i++){
 			byte [] buffer = new byte[4];
 			//read first argument in argv
-			if(readVirtuaMemory(argv+(4*i), buffer) == 4){
-				for(int i = 0; i < buffer.length; i++){
-					//calculating address of strings in argv
-
-					readVirtualMemoryString(int address, maxLength);
-				}
+			if(readVirtuaMemory(argv+(4*i), buffer) == 4){	
+        int vaddr = 0;
+        int toAdd = 0;
+        int shift = 100000000;
+        //calculate address of strings in argv
+        for(int i = 0; i < buffer.length; i++){
+					//get the int at that byte
+          toAdd = (int)buffer[i];
+          //loop to shift the int appropriately
+          for(int j = 0; j < buffer.length-i; j++){
+            toAdd = toAdd*shift;
+          }
+          //add partial address to complete address
+          vaddr = vaddr + toAdd;
+        }
+        //read with full virtual address
+			  args[i] = readVirtualMemoryString(vaddr, maxLength);
 			}
+      //did not properly read from argv
+      else {
+        return -1;
+      }
 		}
 			
 		// execute with empty arguments?
-		if(process.execute(filename, array)==false){
+		if(process.execute(filename, args)==false){
 			return -1;
 		}
 		else{
