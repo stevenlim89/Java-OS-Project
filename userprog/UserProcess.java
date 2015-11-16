@@ -673,7 +673,17 @@ public class UserProcess {
 	}
 
 	public int handleExec(int file, int argc, int argv){
-		return 0;
+		byte [] buffer = new byte[4];
+		//create a new user process
+		UserProcess process = new UserProcess();
+		// execute with empty arguments?
+		if(process.execute(file, argv)==false){
+			return -1
+		}
+		else{
+			//return pid of child
+			return process.uniqueID;
+		}
 	}
 
 	public int handleJoin(int processID, int status){
