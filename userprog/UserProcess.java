@@ -6,6 +6,8 @@ import nachos.userprog.*;
 
 import java.io.EOFException;
 import java.util.*;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /**
  * Encapsulates the state of a user process that is not contained in its user
@@ -71,9 +73,10 @@ public class UserProcess {
 	public boolean execute(String name, String[] args) {
 		if (!load(name, args))
 			return false;
-
+		System.out.println("Name of string in execute: " + name);
 		UThread userThread = new UThread(this);
 		userThread.setName(name);
+		//keep track of all the UThreads
 		threadTracker.add(userThread);
 		userThread.fork();
 
@@ -110,17 +113,17 @@ public class UserProcess {
 	 * found.
 	 */
 	public String readVirtualMemoryString(int vaddr, int maxLength) {
-		Lib.assertTrue(maxLength >= 0);
+		//Lib.assertTrue(maxLength >= 0);
 
 		byte[] bytes = new byte[maxLength + 1];
 
 		int bytesRead = readVirtualMemory(vaddr, bytes);
-
+		System.out.println("my bytesRead is: " + bytesRead);
 		for (int length = 0; length < bytesRead; length++) {
 			if (bytes[length] == 0)
 				return new String(bytes, 0, length);
 		}
-
+		System.out.println("NULL"); 
 		return null;
 	}
 
@@ -151,8 +154,8 @@ public class UserProcess {
 	 * @return the number of bytes successfully transferred.
 	 */
 	public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
-		Lib.assertTrue(offset >= 0 && length >= 0
-				&& offset + length <= data.length);
+		//Lib.assertTrue(offset >= 0 && length >= 0
+		//		&& offset + length <= data.length);
 
 		byte[] memory = Machine.processor().getMemory();
 	
@@ -163,34 +166,36 @@ public class UserProcess {
 		int amount = 0;
 
 		while(length > 0){
-			if(virtualPN < 0 || virtualPN >= numPages)
+			if(virtualPN < 0 || virtualPN >= numPages){
+				System.out.println("beginning of loop vpn: " + virtualPN);
+				System.out.println("numPages is: " + numPages);
 				return returnBytes; 
-
+			}
 			TranslationEntry tableEntry = pageTable[virtualPN];
 						
-			if(!tableEntry.valid)
+			if(!tableEntry.valid){
+				System.out.println("I am zero at 2nd if");
 				return returnBytes;			
-			
+			}
 			// if it is a valid entry, mark as being in use
 			tableEntry.used = true;
 
 			// need to get whatever is stored in physical address and copy it to data array
 			int pa = virtualOffset + (tableEntry.ppn*pageSize);
-			
+			//virtualOffset = 0;
 			// for now, just assume that virtual addresses equal physical addresses
-			if (pa < 0 || pa >= memory.length)
+			if (pa < 0 || pa >= memory.length){
+				System.out.println("I am zero at 3rd");
 				return returnBytes;
-
+			}
 			amount = Math.min(length, memory.length - pa);
 			System.arraycopy(memory, pa, data, offset, amount);
-
 			returnBytes += amount;
-			//offset += amount;
+			offset += amount;
+			System.out.println("end of loop vpn: " + virtualPN);
 			virtualPN++;
-			virtualOffset = 0;
 			length -= amount;	
 		}
-
 		return returnBytes;
 	}
 
@@ -234,17 +239,17 @@ public class UserProcess {
 
 		// loop for multiple processes
 		while(length > 0){
-			if(virtualPN < 0 || virtualPN >= numPages)
+			if(virtualPN < 0 || virtualPN >= numPages){
 				return returnBytes;
-
+			}
 			TranslationEntry tableEntry = pageTable[virtualPN];
 						
-			if(!tableEntry.valid)
-				return returnBytes;			
-			
-			if(tableEntry.readOnly)
+			if(!tableEntry.valid){
 				return returnBytes;
-	
+			}
+			if(tableEntry.readOnly){
+				return returnBytes;
+			}
 			// Mark as dirty since we are modifying it
 			tableEntry.dirty = true;
 			
@@ -253,16 +258,16 @@ public class UserProcess {
 
 			// need to get whatever is stored in physical address and copy it to data array
 			int pa = virtualOffset + (tableEntry.ppn*pageSize);
-			
+		  	virtualOffset = 0;
+	
 			// for now, just assume that virtual addresses equal physical addresses
-			if (pa < 0 || pa >= memory.length)
+			if (pa < 0 || pa >= memory.length){
 				return returnBytes;
-			
+			}
 			amount = Math.min(length, memory.length - pa);
 			System.arraycopy(data, offset, memory, pa, amount);
 
-			virtualOffset = 0;
-			//offset += amount;
+			offset += amount;
 			returnBytes += amount;
 			virtualPN++;
 			length -= amount;			
@@ -285,6 +290,7 @@ public class UserProcess {
 		Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
 
 		OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
+		System.out.println("name of executable: " + name);
 		if (executable == null) {
 			Lib.debug(dbgProcess, "\topen failed");
 			return false;
@@ -309,12 +315,14 @@ public class UserProcess {
 				return false;
 			}
 			numPages += section.getLength();
+			System.out.println("numPages is: " + numPages); 
 		}
 
 		// make sure the argv array will fit in one page
 		byte[][] argv = new byte[args.length][];
 		int argsSize = 0;
 		for (int i = 0; i < args.length; i++) {
+			System.out.println("args at i? " + args[i] + "\ni is: " + i);
 			argv[i] = args[i].getBytes();
 			// 4 bytes for argv[] pointer; then string plus one for null byte
 			argsSize += 4 + argv[i].length + 1;
@@ -341,7 +349,6 @@ public class UserProcess {
 
 		// Each process should have their own page table so must make new one for each
 		pageTable = new TranslationEntry[numPages];
-
 		// map each entry to a specific place in physical memory
 		for(int i = 0; i < numPages; i++){
 			pageTable[i] = new TranslationEntry(i, UserKernel.takeSpace(), true, false, false, false);
@@ -392,8 +399,9 @@ public class UserProcess {
 					+ " section (" + section.getLength() + " pages)");
 
 			for (int i = 0; i < section.getLength(); i++) {
+				
 				int vpn = section.getFirstVPN() + i;
-
+				System.out.println("vpn in loadSections: " + vpn);
 				// for now, just assume virtual addresses=physical addresses
 				//Need physical page number that corresponds to vpn
 				TranslationEntry entry = pageTable[vpn];
@@ -567,13 +575,16 @@ public class UserProcess {
 		}
 		String name  = readVirtualMemoryString(address, maxLength);
 		// check if file is in virtual memory
+		System.out.println("name is: " + name); 
 		if(name == null){
+			System.out.println("I failed bc of readVMS null");
 			return -1;
 		}
 		//find Filelink associated with name in hashmap
 		FileLinks fl = filemap.get(name);
 		//check if it is linked when the file is not null
 		if(fl != null){
+			System.out.println("I failed bc of fileLink null");
 			if(fl.Unlink){
 				return -1;
 			}
@@ -581,14 +592,16 @@ public class UserProcess {
 		//create an Openfile with the filename, not truncated
 		OpenFile file = ThreadedKernel.fileSystem.open(name, false);
 		// check if file exists in the file system
-		if(file == null)
+		if(file == null){
+			System.out.println("I failed bc of Openfil null");
 			return -1;
-
+		}
 	 	int slot = findEmptySlot();	
 		// check to see if the file descriptor array is full or not
-		if(slot == -1)
+		if(slot == -1){
+			System.out.println("I failed because of slot");
 			return -1;
-
+		}
 			
 		// if it is null, add to hashmap, wait is this necessary...
 		if(fl == null){
@@ -683,27 +696,15 @@ public class UserProcess {
 			byte [] buffer = new byte[4];
 			//read first argument in argv
 			if(readVirtualMemory(argv+(4*i), buffer) == 4){	
-        int vaddr = 0;
-        int toAdd = 0;
-        int shift = 100000000;
-        //calculate address of strings in argv
-        for(int k = 0; k < buffer.length; k++){
-					//get the int at that byte
-          toAdd = (int)buffer[k];
-          //loop to shift the int appropriately
-          for(int j = 0; j < k; j++){
-            toAdd = toAdd*shift;
-          }
-          //add partial address to complete address
-          vaddr = vaddr + toAdd;
-        }
-        //read with full virtual address
-			  args[i] = readVirtualMemoryString(vaddr, maxLength);
+				int vaddr = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        			System.out.println("args at i in handleExec " + args[i] + "\n i in args is:" 
+ + i);
+				args[i] = readVirtualMemoryString(vaddr, maxLength);
 			}
-      //did not properly read from argv
-      else {
-        return -1;
-      }
+			//did not properly read from argv
+			else {
+				return -1;
+			}
 		}
 			
 		// execute with empty arguments?
@@ -717,6 +718,7 @@ public class UserProcess {
 	}
 
 	public int handleJoin(int processID, int status){
+		byte [] buffer = new byte [4];
 		//process ID must be postive
 		if(processID < 0){
 			return -1;
@@ -731,14 +733,18 @@ public class UserProcess {
 		
 		//create the currently running process
 		//KThread currThread = KThread.currentThread();
-		UThread user = new UThread(child);
+		//join on child Uthread
+		//UThread user = new UThread(child);
+
+		/*for(int i = 0; i< threadTracker.size(); i++){
+			if(threadTracker[i] = child)*/
 		user.join();
 		
 		//this is basically readVirtualMemoryString + readVirtual
 		//Memrory but since readString returns a string... i wasn't
 		//sure what to do with it. so I pulled code from the methods
 		//to just get the pa to put the pa into the joinTracker
-		int virtualPN = Processor.pageFromAddress(status);
+		/*int virtualPN = Processor.pageFromAddress(status);
 		int virtualOff = Processor.offsetFromAddress(status);
 		if(virtualPN >= numPages){
 			return -1;
@@ -752,7 +758,11 @@ public class UserProcess {
 		// Comment out till we find out its purpose. (In exit)
 		//child.joinTracker.put(pa,currThread);
 		//if child process exits normally, return 1, otherwise
-		//return 0
+		//return 0*/
+
+		writeVirtualMemory(status,buffer);
+		System.out.println("processID: " + processID);
+		System.out.println("exitstatus: " + exitStatus.get(processID));
 		if(exitStatus.get(processID) == -1){
 			return 0;
 		}

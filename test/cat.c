@@ -17,6 +17,7 @@ int main(int argc, char** argv)
 
   fd = open(argv[1]);
   if (fd==-1) {
+    printf("I am here");
     printf("Unable to open %s\n", argv[1]);
     return 1;
   }
