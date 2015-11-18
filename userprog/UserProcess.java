@@ -76,7 +76,7 @@ public class UserProcess {
 		System.out.println("Name of string in execute: " + name);
 		UThread userThread = new UThread(this);
 		userThread.setName(name);
-		//keep track of all the UThreads
+		//keep track of all the UThreads pertaining to the process
 		threadTracker.add(userThread);
 		userThread.fork();
 
@@ -192,9 +192,12 @@ public class UserProcess {
 			System.arraycopy(memory, pa, data, offset, amount);
 			returnBytes += amount;
 			offset += amount;
+			System.out.println("This is the amount:  " + amount);
 			System.out.println("end of loop vpn: " + virtualPN);
 			virtualPN++;
-			length -= amount;	
+			length -= amount;
+			virtualOffset = 0;
+			System.out.println("This is the length:   " + length);	
 		}
 		return returnBytes;
 	}
@@ -735,10 +738,8 @@ public class UserProcess {
 		//KThread currThread = KThread.currentThread();
 		//join on child Uthread
 		//UThread user = new UThread(child);
-
-		/*for(int i = 0; i< threadTracker.size(); i++){
-			if(threadTracker[i] = child)*/
-		user.join();
+		child.threadTracker.get(0).join();	
+		//user.join();
 		
 		//this is basically readVirtualMemoryString + readVirtual
 		//Memrory but since readString returns a string... i wasn't
@@ -763,7 +764,7 @@ public class UserProcess {
 		writeVirtualMemory(status,buffer);
 		System.out.println("processID: " + processID);
 		System.out.println("exitstatus: " + exitStatus.get(processID));
-		if(exitStatus.get(processID) == -1){
+		if(exitStatus.get(processID) == null){
 			return 0;
 		}
 		else{
