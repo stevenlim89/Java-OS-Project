@@ -441,6 +441,7 @@ public final class Processor {
 	 * to the next instruction.
 	 */
 	public void advancePC() {
+		//System.out.println("Imoved on after syscall exception");
 		advancePC(registers[regNextPC] + 4);
 	}
 

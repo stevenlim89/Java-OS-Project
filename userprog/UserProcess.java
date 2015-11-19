@@ -6,8 +6,6 @@ import nachos.userprog.*;
 
 import java.io.EOFException;
 import java.util.*;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 /**
  * Encapsulates the state of a user process that is not contained in its user
@@ -41,7 +39,7 @@ public class UserProcess {
 		else{
 			root = false;
 		}
-		
+	 	lock = new Lock(); 	
 		parent = null;
 		uniqueID = userProcessCounter;
 		userProcessList.add(userProcessCounter);
@@ -73,14 +71,18 @@ public class UserProcess {
 	public boolean execute(String name, String[] args) {
 		if (!load(name, args))
 			return false;
-		System.out.println("Name of string in execute: " + name);
+
+		lock.acquire();
 		UThread userThread = new UThread(this);
 		userThread.setName(name);
 		//keep track of all the UThreads pertaining to the process
+		//do we have a lock here?
 		threadTracker.add(userThread);
 		userThread.fork();
 
 		childTracker.put(this.uniqueID, this);
+		//unlock here?
+		lock.release();
 		return true;
 	}
 
@@ -118,12 +120,10 @@ public class UserProcess {
 		byte[] bytes = new byte[maxLength + 1];
 
 		int bytesRead = readVirtualMemory(vaddr, bytes);
-		System.out.println("my bytesRead is: " + bytesRead);
 		for (int length = 0; length < bytesRead; length++) {
 			if (bytes[length] == 0)
 				return new String(bytes, 0, length);
 		}
-		System.out.println("NULL"); 
 		return null;
 	}
 
@@ -167,14 +167,11 @@ public class UserProcess {
 
 		while(length > 0){
 			if(virtualPN < 0 || virtualPN >= numPages){
-				System.out.println("beginning of loop vpn: " + virtualPN);
-				System.out.println("numPages is: " + numPages);
 				return returnBytes; 
 			}
 			TranslationEntry tableEntry = pageTable[virtualPN];
 						
 			if(!tableEntry.valid){
-				System.out.println("I am zero at 2nd if");
 				return returnBytes;			
 			}
 			// if it is a valid entry, mark as being in use
@@ -185,19 +182,15 @@ public class UserProcess {
 			//virtualOffset = 0;
 			// for now, just assume that virtual addresses equal physical addresses
 			if (pa < 0 || pa >= memory.length){
-				System.out.println("I am zero at 3rd");
 				return returnBytes;
 			}
 			amount = Math.min(length, memory.length - pa);
 			System.arraycopy(memory, pa, data, offset, amount);
 			returnBytes += amount;
 			offset += amount;
-			System.out.println("This is the amount:  " + amount);
-			System.out.println("end of loop vpn: " + virtualPN);
 			virtualPN++;
 			length -= amount;
 			virtualOffset = 0;
-			System.out.println("This is the length:   " + length);	
 		}
 		return returnBytes;
 	}
@@ -293,7 +286,6 @@ public class UserProcess {
 		Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
 
 		OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
-		System.out.println("name of executable: " + name);
 		if (executable == null) {
 			Lib.debug(dbgProcess, "\topen failed");
 			return false;
@@ -318,14 +310,12 @@ public class UserProcess {
 				return false;
 			}
 			numPages += section.getLength();
-			System.out.println("numPages is: " + numPages); 
 		}
 
 		// make sure the argv array will fit in one page
 		byte[][] argv = new byte[args.length][];
 		int argsSize = 0;
 		for (int i = 0; i < args.length; i++) {
-			System.out.println("args at i? " + args[i] + "\ni is: " + i);
 			argv[i] = args[i].getBytes();
 			// 4 bytes for argv[] pointer; then string plus one for null byte
 			argsSize += 4 + argv[i].length + 1;
@@ -404,7 +394,6 @@ public class UserProcess {
 			for (int i = 0; i < section.getLength(); i++) {
 				
 				int vpn = section.getFirstVPN() + i;
-				System.out.println("vpn in loadSections: " + vpn);
 				// for now, just assume virtual addresses=physical addresses
 				//Need physical page number that corresponds to vpn
 				TranslationEntry entry = pageTable[vpn];
@@ -542,26 +531,35 @@ public class UserProcess {
 	public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
 		switch (syscall) {
 		case syscallHalt:
+		//	System.out.println("halt");
 			return handleHalt();
 		case syscallOpen:
+		//	System.out.println("open");
 			return handleOpen(a0);
 		case syscallWrite:
+		//	System.out.println("write");
 			return handleWrite(a0,a1,a2);
 		case syscallRead:
+		//	System.out.println("read");
          		return handleRead(a0,a1,a2);
     		case syscallExit:
-			System.out.println("enteirng exit");
+		//	System.out.println("exit");
 			handleExit(a0);
 			return 0;
 	 	case syscallCreate:
+		//	System.out.println("create");
 			return handleCreate(a0);	
 		case syscallClose:
+		//	System.out.println("close");
 			return handleClose(a0);
 		case syscallUnlink:
+		//	System.out.println("unlink");
 			return handleUnlink(a0);	
 		case syscallJoin:
+		//	System.out.println("join");
 			return handleJoin(a0, a1);
 		case syscallExec:
+		//	System.out.println("exec");
 			return handleExec(a0, a1, a2);
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -578,16 +576,13 @@ public class UserProcess {
 		}
 		String name  = readVirtualMemoryString(address, maxLength);
 		// check if file is in virtual memory
-		System.out.println("name is: " + name); 
 		if(name == null){
-			System.out.println("I failed bc of readVMS null");
 			return -1;
 		}
 		//find Filelink associated with name in hashmap
 		FileLinks fl = filemap.get(name);
 		//check if it is linked when the file is not null
 		if(fl != null){
-			System.out.println("I failed bc of fileLink null");
 			if(fl.Unlink){
 				return -1;
 			}
@@ -596,13 +591,11 @@ public class UserProcess {
 		OpenFile file = ThreadedKernel.fileSystem.open(name, false);
 		// check if file exists in the file system
 		if(file == null){
-			System.out.println("I failed bc of Openfil null");
 			return -1;
 		}
 	 	int slot = findEmptySlot();	
 		// check to see if the file descriptor array is full or not
 		if(slot == -1){
-			System.out.println("I failed because of slot");
 			return -1;
 		}
 			
@@ -659,11 +652,12 @@ public class UserProcess {
 	}
 
 	public void handleExit(int status){
-     		System.out.println("I finished!");
 		//status returned to parent process for join syscall
+		System.out.println("\nI ENTERED EXIT status " + status);
+		lock.acquire();
 		exitStatus.put(uniqueID, status);
-		
 		//closes file descriptors
+		
 		for(int i = 0; i < numberOfFD; i++){
 			handleClose(i);
 		}
@@ -676,7 +670,7 @@ public class UserProcess {
 		}
 		//keep track of active processes
 		childTracker.remove(uniqueID);
-		
+		lock.release(); 
 		//check if last active process to call terminate or finish 
 		if(childTracker.size() == 1){
 			Kernel.kernel.terminate();
@@ -684,6 +678,7 @@ public class UserProcess {
 		else{ 
 			KThread.finish();
 		}
+
 		return;
 
 	}
@@ -699,9 +694,7 @@ public class UserProcess {
 			byte [] buffer = new byte[4];
 			//read first argument in argv
 			if(readVirtualMemory(argv+(4*i), buffer) == 4){	
-				int vaddr = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).getInt();
-        			System.out.println("args at i in handleExec " + args[i] + "\n i in args is:" 
- + i);
+				int vaddr = Lib.bytesToInt(buffer, 0);
 				args[i] = readVirtualMemoryString(vaddr, maxLength);
 			}
 			//did not properly read from argv
@@ -721,6 +714,7 @@ public class UserProcess {
 	}
 
 	public int handleJoin(int processID, int status){
+		
 		byte [] buffer = new byte [4];
 		//process ID must be postive
 		if(processID < 0){
@@ -734,37 +728,21 @@ public class UserProcess {
 		//get the child user process from the set
 		UserProcess child = childTracker.get(processID);
 		
-		//create the currently running process
-		//KThread currThread = KThread.currentThread();
-		//join on child Uthread
-		//UThread user = new UThread(child);
 		child.threadTracker.get(0).join();	
-		//user.join();
+
 		
-		//this is basically readVirtualMemoryString + readVirtual
-		//Memrory but since readString returns a string... i wasn't
-		//sure what to do with it. so I pulled code from the methods
-		//to just get the pa to put the pa into the joinTracker
-		/*int virtualPN = Processor.pageFromAddress(status);
-		int virtualOff = Processor.offsetFromAddress(status);
-		if(virtualPN >= numPages){
-			return -1;
-		}
-		TranslationEntry tableEntry = pageTable[virtualPN];
-		if(tableEntry.valid == false || tableEntry.readOnly == true){
-			return -1;
-		}
-		int pa = virtualOff + (tableEntry.ppn * pageSize);
 		//WHY? LOL ????
 		// Comment out till we find out its purpose. (In exit)
 		//child.joinTracker.put(pa,currThread);
 		//if child process exits normally, return 1, otherwise
 		//return 0*/
+		int val = exitStatus.get(processID);
+		buffer = Lib.bytesFromInt(val);
 
 		writeVirtualMemory(status,buffer);
-		System.out.println("processID: " + processID);
-		System.out.println("exitstatus: " + exitStatus.get(processID));
-		if(exitStatus.get(processID) == null){
+		
+		//compare to null or -1 and 0? 
+		if(exitStatus.get(processID) == -1){
 			return 0;
 		}
 		else{
@@ -779,24 +757,20 @@ public class UserProcess {
 		}
 		
 		if(length < 0){
-			System.out.println("length is negative :(");
 			return -1;
 		}
 		
 		//check if file descriptor is in bound (16)
 		
 		if(fd > numberOfFD || fd < 0){
-                        System.out.println("fd is out of bounds");
 			return -1;
 		}
 		
 		//checks validity of fd slot and openfile 
 		if(this.fdArray[fd] == null){
-			System.out.println("slot is null");
 			return -1;
 		}
 	 	if(this.fdArray[fd].file==null){
-			System.out.println("file is null");
 			return -1;
 		}	
 		//create local buffer
@@ -824,23 +798,19 @@ public class UserProcess {
 		// length should be positive
 	
 		if(length < 0){
-			System.out.println("length is negative :(");
 			return -1;
 		}
 		
 		//check if file descriptor is in bound (16)
 		if(fd > numberOfFD || fd < 0){
-                        System.out.println("fd value = " + fd);
 			return -1;
 		}
 		
 		//checks validity of fd slot and openfile 
 		if(this.fdArray[fd] == null){
-			System.out.println("slot is null");
 			return -1;
 		}
 	 	if(this.fdArray[fd].file==null){
-			System.out.println("file is null");
 			return -1;
 		}	
 		//create local buffer
@@ -853,10 +823,8 @@ public class UserProcess {
 		
 		//check to see if buffer is invalid
 		if(bytesRead <0){
-			System.out.println("My bytes are negative!");
 			return -1;
 		}
-		//System.out.println("My write value is: " + writeVirtualMemory(bufptr,buffer));
 		int written = writeVirtualMemory(bufptr,buffer);
 	
 		if(written < 0){
@@ -922,6 +890,7 @@ public class UserProcess {
 
 		// If not in map, then remove that link from system, else call unlink
 		if(link == null){
+			//StubFileSystem?
 			boolean remove = UserKernel.fileSystem.remove(name);
 			if(!remove)
 				return -1;
@@ -942,7 +911,7 @@ public class UserProcess {
 	 */
 	public void handleException(int cause) {
 		Processor processor = Machine.processor();
-
+		//System.out.println("exception? " + Processor.exceptionNames[cause]);
 		switch (cause) {
 		case Processor.exceptionSyscall:
 			int result = handleSyscall(processor.readRegister(Processor.regV0),
@@ -958,6 +927,7 @@ public class UserProcess {
 			Lib.debug(dbgProcess, "Unexpected exception: "
 					+ Processor.exceptionNames[cause]);
 			Lib.assertNotReached("Unexpected exception");
+			
 		}
 	}
 
@@ -997,21 +967,20 @@ public class UserProcess {
 		return -1;
 	}
 	
-	/** lnrwsl - The program being run by this process. */
 	protected Coff coff;
 
-	/** lnrwsl - This process's page table. */
 	protected TranslationEntry[] pageTable;
 
-	/** lnrwsl - The number of contiguous pages occupied by the program. */
 	protected int numPages;
 
-	/** lnrwsl - The number of pages in the program's stack. */
 	protected final int stackPages = 8;
 
 	private int initialPC, initialSP;
 
 	private int argc, argv;
+	
+	/** lnrwsl - Lock for execute */
+	private static Lock lock; 
 	
 	/** lnrwsl - Hashmap for pairing unlink boolean with file object */
 	private static HashMap<String, FileLinks> filemap = new HashMap<String, FileLinks>();
