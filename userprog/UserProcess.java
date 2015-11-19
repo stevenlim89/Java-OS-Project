@@ -29,8 +29,11 @@ public class UserProcess {
 		for (int i = 0; i < numPhysPages; i++)
 			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
 		
+		/** ClutchAF */
 		this.fdArray[0] = new FileDescriptor(UserKernel.console.openForReading());
 		this.fdArray[1] = new FileDescriptor(UserKernel.console.openForWriting());
+		
+
 		// Keep track of all new processes made. increment counter after creation
 		// root process should be first process that instantiates a user process
 		if(userProcessList.isEmpty()){
@@ -39,13 +42,14 @@ public class UserProcess {
 		else{
 			root = false;
 		}
-	 	lock = new Lock(); 	
+		
+		/** ClutchAF */
 		parent = null;
 		uniqueID = userProcessCounter;
 		userProcessList.add(userProcessCounter);
 		userProcessCounter++;
 		childTracker = new HashMap<Integer, UserProcess>();
-		threadTracker = new ArrayList<KThread>();
+		threadTracker = new ArrayList<UThread>();
 		joinTracker = new HashMap<Integer, KThread>();	
 	}
 
@@ -72,17 +76,12 @@ public class UserProcess {
 		if (!load(name, args))
 			return false;
 
-		lock.acquire();
 		UThread userThread = new UThread(this);
 		userThread.setName(name);
-		//keep track of all the UThreads pertaining to the process
-		//do we have a lock here?
 		threadTracker.add(userThread);
 		userThread.fork();
 
 		childTracker.put(this.uniqueID, this);
-		//unlock here?
-		lock.release();
 		return true;
 	}
 
@@ -174,10 +173,8 @@ public class UserProcess {
 			if(!tableEntry.valid){
 				return returnBytes;			
 			}
-			// if it is a valid entry, mark as being in use
 			tableEntry.used = true;
 
-			// need to get whatever is stored in physical address and copy it to data array
 			int pa = virtualOffset + (tableEntry.ppn*pageSize);
 			//virtualOffset = 0;
 			// for now, just assume that virtual addresses equal physical addresses
@@ -531,35 +528,25 @@ public class UserProcess {
 	public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
 		switch (syscall) {
 		case syscallHalt:
-		//	System.out.println("halt");
 			return handleHalt();
 		case syscallOpen:
-		//	System.out.println("open");
 			return handleOpen(a0);
 		case syscallWrite:
-		//	System.out.println("write");
 			return handleWrite(a0,a1,a2);
 		case syscallRead:
-		//	System.out.println("read");
          		return handleRead(a0,a1,a2);
     		case syscallExit:
-		//	System.out.println("exit");
 			handleExit(a0);
 			return 0;
 	 	case syscallCreate:
-		//	System.out.println("create");
 			return handleCreate(a0);	
 		case syscallClose:
-		//	System.out.println("close");
 			return handleClose(a0);
 		case syscallUnlink:
-		//	System.out.println("unlink");
 			return handleUnlink(a0);	
 		case syscallJoin:
-		//	System.out.println("join");
 			return handleJoin(a0, a1);
 		case syscallExec:
-		//	System.out.println("exec");
 			return handleExec(a0, a1, a2);
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -568,7 +555,7 @@ public class UserProcess {
 		return 0;
 	}
 
-	// Handler for open system call
+	/** ClutchAF */
 	private int handleOpen(int address) {
 		//get name of the file
 		if(address == 0){
@@ -610,6 +597,7 @@ public class UserProcess {
 		return slot;
 	}
 	
+	/** ClutchAF */
 	public int handleCreate(int address) {
 		//get name of the file
 		if(address == 0){
@@ -650,11 +638,10 @@ public class UserProcess {
 		//return where it is created
 		return slot;
 	}
-
+	
+	/** ClutchAF */
 	public void handleExit(int status){
 		//status returned to parent process for join syscall
-		System.out.println("\nI ENTERED EXIT status " + status);
-		lock.acquire();
 		exitStatus.put(uniqueID, status);
 		//closes file descriptors
 		
@@ -670,7 +657,6 @@ public class UserProcess {
 		}
 		//keep track of active processes
 		childTracker.remove(uniqueID);
-		lock.release(); 
 		//check if last active process to call terminate or finish 
 		if(childTracker.size() == 1){
 			Kernel.kernel.terminate();
@@ -683,6 +669,7 @@ public class UserProcess {
 
 	}
 
+	/** ClutchAF */
 	public int handleExec(int file, int argc, int argv){
 		//create a new user process
 		UserProcess process = new UserProcess();
@@ -713,6 +700,7 @@ public class UserProcess {
 		}
 	}
 
+	/** ClutchAF */
 	public int handleJoin(int processID, int status){
 		
 		byte [] buffer = new byte [4];
@@ -730,12 +718,6 @@ public class UserProcess {
 		
 		child.threadTracker.get(0).join();	
 
-		
-		//WHY? LOL ????
-		// Comment out till we find out its purpose. (In exit)
-		//child.joinTracker.put(pa,currThread);
-		//if child process exits normally, return 1, otherwise
-		//return 0*/
 		int val = exitStatus.get(processID);
 		buffer = Lib.bytesFromInt(val);
 
@@ -750,6 +732,7 @@ public class UserProcess {
 		}
 	}
 
+	/** ClutchAF */
 	public int handleWrite( int fd, int bufptr, int length){		
 		// length should be positive
 		if(bufptr > Machine.processor().getNumPhysPages() * pageSize){
@@ -794,6 +777,7 @@ public class UserProcess {
 		return bytesWritten;
 	}
 	
+	/** ClutchAF */
 	public int handleRead( int fd, int bufptr, int length){  
 		// length should be positive
 	
@@ -833,7 +817,8 @@ public class UserProcess {
 		return written;
 
 	}
-
+	
+	/** ClutchAF */
 	private int handleClose(int fd){
 		//checks validity of fd (in bound, non negative)
 		if(fd >= numberOfFD || fd < 0){
@@ -877,7 +862,7 @@ public class UserProcess {
 		return 0;
 	}
 	
-
+	/** ClutchAF */
 	private int handleUnlink(int nameAddress){
 		String name = readVirtualMemoryString(nameAddress, maxLength);
 		
@@ -890,7 +875,6 @@ public class UserProcess {
 
 		// If not in map, then remove that link from system, else call unlink
 		if(link == null){
-			//StubFileSystem?
 			boolean remove = UserKernel.fileSystem.remove(name);
 			if(!remove)
 				return -1;
@@ -911,7 +895,6 @@ public class UserProcess {
 	 */
 	public void handleException(int cause) {
 		Processor processor = Machine.processor();
-		//System.out.println("exception? " + Processor.exceptionNames[cause]);
 		switch (cause) {
 		case Processor.exceptionSyscall:
 			int result = handleSyscall(processor.readRegister(Processor.regV0),
@@ -931,7 +914,7 @@ public class UserProcess {
 		}
 	}
 
-	/** lnrwsl - File Descriptor Class */
+	/** ClutchAF - File Descriptor Class */
 	private class FileDescriptor{
 		public FileDescriptor(OpenFile f){
 			this.file = f;
@@ -941,7 +924,7 @@ public class UserProcess {
 		OpenFile file = null;
 	}
 	
-	/** lnrwsl - FileLinks Class*/
+	/** ClutchAF - FileLinks Class*/
 	private class FileLinks{
 		public FileLinks(){}
 		int opened = 1;
@@ -950,7 +933,7 @@ public class UserProcess {
 	
 	
 	
-	/** lnrwsl - Method to check for an empty slot in the file
+	/** ClutchAF - Method to check for an empty slot in the file
 	 * Descriptor Array.
 	 * @return
 	 */
@@ -979,55 +962,51 @@ public class UserProcess {
 
 	private int argc, argv;
 	
-	/** lnrwsl - Lock for execute */
-	private static Lock lock; 
-	
-	/** lnrwsl - Hashmap for pairing unlink boolean with file object */
+	/** ClutchAF - Hashmap for pairing unlink boolean with file object */
 	private static HashMap<String, FileLinks> filemap = new HashMap<String, FileLinks>();
 
-	/** lnrwsl - flag to check if a process is the root process */
+	/** ClutchAF - flag to check if a process is the root process */
 	private static boolean root = false;
 
-	/** lnrwsl - unique id given to a process upon creation */
+	/** ClutchAF - unique id given to a process upon creation */
 	private static int uniqueID = 0;
 
-	/** lnrwsl - array to keep track of all file descriptors */	
+	/** ClutchAF - array to keep track of all file descriptors */	
 	private FileDescriptor fdArray [] = new FileDescriptor [16];
 
-	/** lnrwsl - hashmap to keep track of child processes */
+	/** ClutchAF - hashmap to keep track of child processes */
 	private static HashMap<Integer, UserProcess> childTracker;
 
-	/** lnrwsl - max length of a buffer */
+	/** ClutchAF - max length of a buffer */
 	private static final int maxLength = 256;
 
-	/** lnrwsl - the max number of file descriptors available in nachos*/
+	/** ClutchAF - the max number of file descriptors available in nachos*/
 	private static final int numberOfFD = 16;
 
-	/** lnrwsl - counter to count the number of processes*/
+	/** ClutchAF - counter to count the number of processes*/
 	private static int userProcessCounter = 0;
 
-	/** lnrwsl - number of pages in the nacho system */
+	/** ClutchAF - number of pages in the nacho system */
 	private static final int pageSize = Processor.pageSize;
 
-	/** lnrwsl - parent process */
+	/** ClutchAF - parent process */
 	private static UserProcess parent;
 
-	/** lnrwsl - list to keep track of all the processes and their unique ids. Might remove in favor of a hashmap.*/
+	/** ClutchAF - list to keep track of all the processes and their unique ids. Might remove in favor of a hashmap.*/
 	private static LinkedList<Integer> userProcessList = new LinkedList<Integer>();
 	
-	/** lnrwsl - Hashmap for pairing parent with its children */
-	//private Set<Integer> childTracker;
+	/** ClutchAF - Hashmap for pairing parent with its children */
 	
-	/** lnrwsl - Hashset of KThreads */
-	private ArrayList<KThread> threadTracker;
+	/** ClutchAF - Hashset of KThreads */
+	private ArrayList<UThread> threadTracker;
 		
-	/** lnrwsl - Hashmap of KThreads and physical addresses */
+	/** ClutchAF - Hashmap of KThreads and physical addresses */
 	private HashMap<Integer, KThread> joinTracker;
 
-	/** lnrwsl - HashMap of UserProcesses and its IDs */
+	/** ClutchAF - HashMap of UserProcesses and its IDs */
 	private static HashMap<Integer, UserProcess> processTracker = new HashMap<Integer, UserProcess>(); 
 
-	/** lnrwsl - HashMap of exit status int and PID */
+	/** ClutchAF - HashMap of exit status int and PID */
 	private static HashMap<Integer,Integer> exitStatus = new HashMap<Integer, Integer>();
 
 	private static final char dbgProcess = 'a';

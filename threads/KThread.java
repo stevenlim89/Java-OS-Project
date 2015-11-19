@@ -203,7 +203,7 @@ public class KThread {
 		toBeDestroyed = currentThread;
 
 		currentThread.status = statusFinished;
-		sema.V();
+		currentThread.sema.V();
 		sleep();
 	}
 
@@ -505,5 +505,5 @@ public class KThread {
 
 	private static KThread idleThread = null;
 	
-	private static Semaphore sema = new Semaphore(0); //extra semicolon?
+	private Semaphore sema = new Semaphore(0); //extra semicolon?
 }
