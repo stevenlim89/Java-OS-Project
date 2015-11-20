@@ -33,16 +33,7 @@ public class UserProcess {
 		this.fdArray[0] = new FileDescriptor(UserKernel.console.openForReading());
 		this.fdArray[1] = new FileDescriptor(UserKernel.console.openForWriting());
 		
-
-		// Keep track of all new processes made. increment counter after creation
-		// root process should be first process that instantiates a user process
-		if(userProcessList.isEmpty()){
-			root = true;
-		}
-		else{
-			root = false;
-		}
-		
+				
 		/** ClutchAF */
 		parent = null;
 		uniqueID = userProcessCounter;
@@ -183,6 +174,7 @@ public class UserProcess {
 			}
 			amount = Math.min(length, memory.length - pa);
 			System.arraycopy(memory, pa, data, offset, amount);
+
 			returnBytes += amount;
 			offset += amount;
 			virtualPN++;
@@ -452,7 +444,8 @@ public class UserProcess {
 	 */
 	private int handleHalt() {
 
-		if(root)
+		// if root process, then it can halt, else it cant call halt
+		if(uniqueID == 0)
 			Machine.halt();
 
 		Lib.assertNotReached("Machine.halt() did not halt machine!");
@@ -641,8 +634,10 @@ public class UserProcess {
 	
 	/** ClutchAF */
 	public void handleExit(int status){
+		System.out.println("I am exiting");
 		//status returned to parent process for join syscall
 		exitStatus.put(uniqueID, status);
+		//userProcessList.remove(uniqueID);
 		//closes file descriptors
 		
 		for(int i = 0; i < numberOfFD; i++){
@@ -655,9 +650,11 @@ public class UserProcess {
 		if(this.parent != null){
 			this.parent.childTracker.remove(uniqueID); 
 		}
+		
+		//why are we removing child from process?
 		//keep track of active processes
 		childTracker.remove(uniqueID);
-		//check if last active process to call terminate or finish 
+		//check if last active process to call terminate or finish
 		if(childTracker.size() == 1){
 			Kernel.kernel.terminate();
 		}
@@ -720,6 +717,9 @@ public class UserProcess {
 
 		int val = exitStatus.get(processID);
 		buffer = Lib.bytesFromInt(val);
+		
+		// when current process resumes, it disowns the child
+		childTracker.remove(processID);
 
 		writeVirtualMemory(status,buffer);
 		
@@ -745,7 +745,7 @@ public class UserProcess {
 		
 		//check if file descriptor is in bound (16)
 		
-		if(fd > numberOfFD || fd < 0){
+		if(fd >= numberOfFD || fd < 0){
 			return -1;
 		}
 		
@@ -786,7 +786,7 @@ public class UserProcess {
 		}
 		
 		//check if file descriptor is in bound (16)
-		if(fd > numberOfFD || fd < 0){
+		if(fd >= numberOfFD || fd < 0){
 			return -1;
 		}
 		
@@ -814,7 +814,9 @@ public class UserProcess {
 		if(written < 0){
 			return -1;
 		}
-		return written;
+	
+		// need to return bytes read not written
+		return bytesRead;
 
 	}
 	
@@ -895,6 +897,7 @@ public class UserProcess {
 	 */
 	public void handleException(int cause) {
 		Processor processor = Machine.processor();
+	
 		switch (cause) {
 		case Processor.exceptionSyscall:
 			int result = handleSyscall(processor.readRegister(Processor.regV0),
@@ -910,6 +913,8 @@ public class UserProcess {
 			Lib.debug(dbgProcess, "Unexpected exception: "
 					+ Processor.exceptionNames[cause]);
 			Lib.assertNotReached("Unexpected exception");
+			// if a process raises an unexpected exception, justexit that process. Can't halt because only the root can
+			handleExit(-1);
 			
 		}
 	}
