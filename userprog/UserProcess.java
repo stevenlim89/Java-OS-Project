@@ -37,7 +37,6 @@ public class UserProcess {
 		/** ClutchAF */
 		parent = null;
 		uniqueID = userProcessCounter;
-		userProcessList.add(userProcessCounter);
 		userProcessCounter++;
 		childTracker = new HashMap<Integer, UserProcess>();
 		threadTracker = new ArrayList<UThread>();
@@ -72,6 +71,10 @@ public class UserProcess {
 		threadTracker.add(userThread);
 		userThread.fork();
 
+		// put process into active proccess list
+		userProcessList.put(uniqueID, this);
+
+		// add child to existing process
 		childTracker.put(this.uniqueID, this);
 		return true;
 	}
@@ -105,7 +108,6 @@ public class UserProcess {
 	 * found.
 	 */
 	public String readVirtualMemoryString(int vaddr, int maxLength) {
-		//Lib.assertTrue(maxLength >= 0);
 
 		byte[] bytes = new byte[maxLength + 1];
 
@@ -167,8 +169,7 @@ public class UserProcess {
 			tableEntry.used = true;
 
 			int pa = virtualOffset + (tableEntry.ppn*pageSize);
-			//virtualOffset = 0;
-			// for now, just assume that virtual addresses equal physical addresses
+			
 			if (pa < 0 || pa >= memory.length){
 				return returnBytes;
 			}
@@ -634,12 +635,10 @@ public class UserProcess {
 	
 	/** ClutchAF */
 	public void handleExit(int status){
-		System.out.println("I am exiting");
 		//status returned to parent process for join syscall
 		exitStatus.put(uniqueID, status);
-		//userProcessList.remove(uniqueID);
-		//closes file descriptors
 		
+		//closes file descriptors	
 		for(int i = 0; i < numberOfFD; i++){
 			handleClose(i);
 		}
@@ -651,11 +650,11 @@ public class UserProcess {
 			this.parent.childTracker.remove(uniqueID); 
 		}
 		
-		//why are we removing child from process?
-		//keep track of active processes
-		childTracker.remove(uniqueID);
+		// Remove process from active proccess list
+		userProcessList.remove(uniqueID);
+		
 		//check if last active process to call terminate or finish
-		if(childTracker.size() == 1){
+		if(userProcessList.size() == 0){
 			Kernel.kernel.terminate();
 		}
 		else{ 
@@ -705,8 +704,9 @@ public class UserProcess {
 		if(processID < 0){
 			return -1;
 		}
-		//child must be in set of child PIDs
-		if(childTracker.containsKey(processID) == false){
+
+		//child must be in set of child PIDs and must be active
+		if(childTracker.containsKey(processID) == false || userProcessList.containsKey(processID) == false){
 			return -1;
 		}
 
@@ -765,6 +765,7 @@ public class UserProcess {
 		if(bytesTransferred < 0){
 			return -1;
 		}
+
 		//create Openfile object to write to and return the bytes written
 		OpenFile of = this.fdArray[fd].file;
 		
@@ -809,6 +810,7 @@ public class UserProcess {
 		if(bytesRead <0){
 			return -1;
 		}
+
 		int written = writeVirtualMemory(bufptr,buffer);
 	
 		if(written < 0){
@@ -997,10 +999,8 @@ public class UserProcess {
 	/** ClutchAF - parent process */
 	private static UserProcess parent;
 
-	/** ClutchAF - list to keep track of all the processes and their unique ids. Might remove in favor of a hashmap.*/
-	private static LinkedList<Integer> userProcessList = new LinkedList<Integer>();
-	
-	/** ClutchAF - Hashmap for pairing parent with its children */
+	/** ClutchAF - list to keep track of all active processes */
+	private static HashMap<Integer, UserProcess> userProcessList = new HashMap<Integer, UserProcess>();
 	
 	/** ClutchAF - Hashset of KThreads */
 	private ArrayList<UThread> threadTracker;
