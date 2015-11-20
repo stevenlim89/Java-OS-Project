@@ -72,7 +72,8 @@ public class UserProcess {
 		userThread.fork();
 
 		// put process into active proccess list
-		userProcessList.put(uniqueID, this);
+		//userProcessList.put(uniqueID, this);
+    userProcessCount++;
 
 		// add child to existing process
 		childTracker.put(this.uniqueID, this);
@@ -651,11 +652,13 @@ public class UserProcess {
 		}
 		
 		// Remove process from active proccess list
-		userProcessList.remove(uniqueID);
-		
+		//userProcessList.remove(uniqueID);
+		userProcessCount--;
+
 		//check if last active process to call terminate or finish
-		if(userProcessList.size() == 0){
-			Kernel.kernel.terminate();
+		//if(userProcessList.size() == 0){
+		if(userProcessCount == 0){
+      Kernel.kernel.terminate();
 		}
 		else{ 
 			KThread.finish();
@@ -706,7 +709,7 @@ public class UserProcess {
 		}
 
 		//child must be in set of child PIDs and must be active
-		if(childTracker.containsKey(processID) == false || userProcessList.containsKey(processID) == false){
+		if(childTracker.containsKey(processID) == false){
 			return -1;
 		}
 
@@ -1000,8 +1003,9 @@ public class UserProcess {
 	private static UserProcess parent;
 
 	/** ClutchAF - list to keep track of all active processes */
-	private static HashMap<Integer, UserProcess> userProcessList = new HashMap<Integer, UserProcess>();
-	
+	//private static HashMap<Integer, UserProcess> userProcessList = new HashMap<Integer, UserProcess>();
+	private static int userProcessCount = 0;
+
 	/** ClutchAF - Hashset of KThreads */
 	private ArrayList<UThread> threadTracker;
 		
