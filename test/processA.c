@@ -21,7 +21,9 @@ int main ( int argc, char ** argv)
 		write(1,str2,1);
 		str2++;
 	}
-	exit(1);
+  int y = join(x, &st);
+  printf("\ndisown %d", y); 
+
 	return 0;
 
 }

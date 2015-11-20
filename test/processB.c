@@ -8,6 +8,6 @@ int main (int argc, char **argv){
                 write(1,str,1);
                 str++;
         }
-	exit(1); 
+	//exit(1); 
 	return 0;
 }
