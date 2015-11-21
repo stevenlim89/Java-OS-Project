@@ -71,8 +71,7 @@ public class UserProcess {
 		threadTracker.add(userThread);
 		userThread.fork();
 
-		// put process into active proccess list
-		//userProcessList.put(uniqueID, this);
+		// increment counter for active processes
     userProcessCount++;
 
 		// add child to existing process
@@ -529,8 +528,8 @@ public class UserProcess {
 		case syscallWrite:
 			return handleWrite(a0,a1,a2);
 		case syscallRead:
-         		return handleRead(a0,a1,a2);
-    		case syscallExit:
+      return handleRead(a0,a1,a2);
+    case syscallExit:
 			handleExit(a0);
 			return 0;
 	 	case syscallCreate:
@@ -581,10 +580,9 @@ public class UserProcess {
 			return -1;
 		}
 			
-		// if it is null, add to hashmap, wait is this necessary...
+		// if it is null, add to hashmap
 		if(fl == null){
 			filemap.put(name, new FileLinks());
-			//increment count? BUT WHAT IS COUNT?? lol 
 		}	
 				
 		this.fdArray[slot] = new FileDescriptor(file);
@@ -624,8 +622,7 @@ public class UserProcess {
 		if(slot == -1){
 			return -1;
 		}
-			//otherwise check that the fileLink is null and put it in the 
-		//hasmap
+    //otherwise check that the fileLink is null and put it in the hashmap
 		if(fl == null){
 			filemap.put(name, new FileLinks());
 		}
@@ -651,12 +648,10 @@ public class UserProcess {
 			this.parent.childTracker.remove(uniqueID); 
 		}
 		
-		// Remove process from active proccess list
-		//userProcessList.remove(uniqueID);
+		//decrement counter for active processes
 		userProcessCount--;
-
+    
 		//check if last active process to call terminate or finish
-		//if(userProcessList.size() == 0){
 		if(userProcessCount == 0){
       Kernel.kernel.terminate();
 		}
@@ -689,7 +684,6 @@ public class UserProcess {
 			}
 		}
 			
-		// execute with empty arguments?
 		if(process.execute(filename, args)==false){
 			return -1;
 		}
@@ -724,15 +718,14 @@ public class UserProcess {
 		// when current process resumes, it disowns the child
 		childTracker.remove(processID);
 
-		writeVirtualMemory(status,buffer);
+		int bytesWritten = writeVirtualMemory(status,buffer);
 		
-		//compare to null or -1 and 0? 
-		if(exitStatus.get(processID) == -1){
-			return 0;
+    if(exitType.containsKey(processID) && exitStatus.get(processID) == -1){
+      return 0;
 		}
-		else{
-			return 1;
-		}
+    else{
+      return 1;
+    }
 	}
 
 	/** ClutchAF */
@@ -917,9 +910,11 @@ public class UserProcess {
 		default:
 			Lib.debug(dbgProcess, "Unexpected exception: "
 					+ Processor.exceptionNames[cause]);
-			Lib.assertNotReached("Unexpected exception");
+			//Lib.assertNotReached("Unexpected exception");
+      // put a false flag in hashmap
+      exitType.put(uniqueID, false);
 			// if a process raises an unexpected exception, justexit that process. Can't halt because only the root can
-			handleExit(-1);
+      handleExit(-1);
 			
 		}
 	}
@@ -1002,11 +997,13 @@ public class UserProcess {
 	/** ClutchAF - parent process */
 	private static UserProcess parent;
 
-	/** ClutchAF - list to keep track of all active processes */
-	//private static HashMap<Integer, UserProcess> userProcessList = new HashMap<Integer, UserProcess>();
+	/** ClutchAF - counter to keep track of all active processes */
 	private static int userProcessCount = 0;
 
-	/** ClutchAF - Hashset of KThreads */
+	/** ClutchAF - Hashmap of PID and if process went into handleException */
+  private static HashMap<Integer, Boolean> exitType = new HashMap<Integer, Boolean>();
+  
+  /** ClutchAF - Hashset of KThreads */
 	private ArrayList<UThread> threadTracker;
 		
 	/** ClutchAF - Hashmap of KThreads and physical addresses */

@@ -14,8 +14,10 @@ int main ( int argc, char ** argv)
 	}
 	
  	int x = exec("processB.coff",0,0);
-	join(x, &st);
-		
+	int xVal = join(x, &st);
+	
+  printf("value of x after join: %d", xVal);
+    
 	char *str2 = "\nhi again lucky";
 	while(*str2){
 		write(1,str2,1);
