@@ -40,7 +40,6 @@ public class UserProcess {
 		userProcessCounter++;
 		childTracker = new HashMap<Integer, UserProcess>();
 		threadTracker = new ArrayList<UThread>();
-		joinTracker = new HashMap<Integer, KThread>();	
 	}
 
 	/**
@@ -1006,12 +1005,6 @@ public class UserProcess {
   /** ClutchAF - Hashset of KThreads */
 	private ArrayList<UThread> threadTracker;
 		
-	/** ClutchAF - Hashmap of KThreads and physical addresses */
-	private HashMap<Integer, KThread> joinTracker;
-
-	/** ClutchAF - HashMap of UserProcesses and its IDs */
-	private static HashMap<Integer, UserProcess> processTracker = new HashMap<Integer, UserProcess>(); 
-
 	/** ClutchAF - HashMap of exit status int and PID */
 	private static HashMap<Integer,Integer> exitStatus = new HashMap<Integer, Integer>();
 

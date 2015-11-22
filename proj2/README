@@ -1,0 +1,275 @@
+-----------------
+ CSE 120 MEMBERS
+-----------------
+1. Chau Lucky Nguyen 
+	PID: A10742893 
+	Login: cs120edp
+2. Ryan Weng 
+	PID: A10713613 
+	Login: rweng
+3. Steven Lim 
+	PID:A10565388 
+	Login: stl054
+
+------------------------------
+ DESCRIPTION OF CODE WE WROTE
+------------------------------
+>>>UserProcess.java 
+
+---VARIABLES---
+private static HashMap filemap
+	keeps track of unlink boolean with FileLink object
+	** Used in handleOpen, handleCreate, handleUnlink
+
+private static int uniqueID
+	User Process's PID upon creation
+	** Used in UserProcess, execute, handleHalt, handleExit, 
+	handleException 
+
+private FileDescriptor fdArray
+	an array to keep track of all the file descriptors
+	** Used in UserProcess, handleOpen, handleCreate, handleWrite, 
+	handleRead, handleClose, findEmptySlot
+
+private static HashMap childTracker
+	hashmap to keep track of child processes	
+	** Used in UserProcess, execute, handleExit, handleJoin
+
+private static final int maxLength
+	max length of a buffer
+	** Used in handleOpen, handleCreate, handleExec, handleUnlink
+
+private static final int numberOfFD
+	max number of file descriptors available in nachos
+	** Used in handleExit, handleWrite, handleRead, handleClose, FindEmptySlot
+ 
+private static int userProcessCounter
+	counter to count the number of processors 
+	** Used in UserProcess
+
+private static UserProcess parent
+	parent process
+	** Used in User Process, handleExit
+
+private static int userProcessCount
+	counter to keep track of number of all active processes
+	** Used in execute, handleExit
+ 
+private static HashMap exitType
+	hashmap of PID and if process went into handleException
+	** Used in handleJoin, handleException
+
+private ArrayList threadTracker
+	hashset of kthreads
+	** Used in UserProcess, execute, handleJoin
+	
+private static HashMap exitStatus
+	hashmap of exit status int and PID 
+	** Used in handleExit, handleJoin
+
+--- Methods --
+
+UserProcess (constructor)
+	Set up file descriptors (fdArray) for stdin and stdout
+	Created fields in UserProcess to keep track of its data
+		parent - parent UserProcess
+		uniqueID - int to represent the PID
+		userProcessCounter - int to assign PIDs
+		childTracker - hashmap to keep track of children
+		threadTracker - hashmap to keep track of threads
+		joinTracker - hashmap to keep track of which processes called join already 
+
+execute (method)
+	Kept track of threads using threadTracker
+	Kept track of children using childTracker
+	Kept track of number of active processes with an int called UserProcessCount 
+
+readVirtualMemory (method)
+	Got the virtual page number and offset from the virtual address
+	Reading through how much memory we need to read in based on length parameter
+	Check validity of virtual page number and translation entry 
+	Created a new table entry in the page table when looping through the while loop
+	Marked table entry as used
+	Compute physical address using PPN, page size, and virtual offset
+	Check how much memory was actually read 
+	Reset virtualOffset for the next page 
+	Update length to reflect how much memory we still need to read
+	Update returnBytes as the variable to keep track of how much memory we have read	
+	Update offset to continue reading from where we stopped 
+	Use updated local variables to check if while loop is done or not
+
+writeVirtualMemory (method)
+	Got the virtual page number and offset from the virtual address
+	Writing through how much memory we need to read in based on length parameter
+	Check validity of virtual page number and translation entry 
+	Created a new table entry in the page table when looping through the while loop
+	Marked table entry as in use and dirty
+	Compute physical address using PPN, page size, and virtual offset
+	Check how much memory was actually written 
+	Reset virtualOffset for the next page 
+	Update length to reflect how much memory we still need to write
+	Update returnBytes as the variable to keep track of how much memory we have written
+	Update offset to continue writing from where we stopped 
+	Use updated local variables to check if while loop is done or not
+
+load (method)
+	Reinitialized the page table to adjust for the number of pages that the process being loaded requires
+
+loadSections (method)
+	Get the first virtual page number 
+	Create a translation entry in the page table with the VPN
+	Check if the entry is read only or not 
+	Load the page if available
+
+handleSyscall (method)
+	Modified switch case statement with the correct return calls and parameters
+
+handleOpen (method)
+	Check validity of address
+	Get the name of the file from readVirtualMemoryString with the address and maxlength which is 256 bytes
+	Create FileLinks to keep track if file has been unlinked or not 
+	Check if it is linked when the file is not null
+	Create an OpenFile with the filename but not truncated
+	Adds OpenFile to filemap hashmap if file exists and fdArray is not full with findEmptySlot()
+	Returns slot where we put the file in
+
+handleCreate (method)
+	Check validity of address
+	Get the name of the file from readVirtualMemoryString with the address and maxlength which is 256 bytes
+	Create FileLinks to keep track if file has been unlinked or not 
+	Check if it is linked when the file is not null
+	Create a truncated OpenFile with the filename because it is an empty file (not created yet)
+	Adds OpenFile to filemap hashmap if file exists and fdArray is not full with findEmptySlot()
+	Returns slot where we put the file in
+
+handleExit (method)
+	Add UserProcess ID (uniqueID) and the exit status from the parameter into the exitStatus hashmap
+	Close file descriptors with handleClose by looping through the numberOfFD (16)
+	Close all coff sections and release physical pages by calling unloadSections()
+	For all children of process, make parent null by removing the uniqueID from the childTracker of the parent
+	Decrement counter for active processes using userProcessCount
+	Check if it is the last active process to determine whether to terminate or finish
+
+handleExec (method)
+	First create a new User Process
+	Create the name of the file by calling readVirtualMemoryString taking in file and maxLength (256 bytes)
+	Create a String array called args that will take in the parameter argc
+	Loop through String array to get a byte array for each argument in argv[]
+	Convert each byte array into its int virtual address to call readVirtualMemoryString
+	Execute the process with the provided arguments 
+	Return UserProcess ID if successful otherwise -1 
+
+handleJoin (method)
+	First check the validity of the parameter processID because it needs to be a positive
+	If the processID is valid, check if the child process belongs to the parent proess by checking childTracker hashmap
+	Call join on the UThread of the child User Process from childTracker hashmap
+	Get the exit status value from exitStatus hashmap using the processID
+	With the exit status value, call writeVirtualMemory to write the status to virtual memory
+	Removed child user process from childTracker because the parent should disown its child after the first call to join
+
+handleWrite (method)
+	Checks the validity of all the paramters (fd, bufptr, and length).
+	File descriptor should be in bound of 16
+	Length should be positive
+	Bufptr should be up to the numPhysPages times pageSize
+	Check if the file descriptor is in the fdArray and a file exists in the fdArray
+	Create an empty buffer of size length and call readVirtualMemory with the empty buffer and bufptr
+	With the bytes that was transferred with readVirtualMemory, create an OpenFile to call write.
+
+handleRead (method)
+	Checks the validity of all the paramters (fd, bufptr, and length).
+	File descriptor should be in bound of 16
+	Length should be positive
+	Bufptr should be up to the numPhysPages times pageSize
+	Create an OpenFile to call read 
+	With the bytes that was read from calling read. 
+	Now that the buffer is filled with the bes that was read, call writeVirtualMemory with the buffer
+
+handleClose (method)
+	Checks the validity of the parameter fd because it should be in bound of 16
+	Create a FileDescriptor object with the parameter
+	Close the OpenFile that is from the FileDescriptor object. Calling close will release associated resources
+	Mark the slot inside of the fdArray so it can be reused
+	Create a FileLink object from the OpenFile filename 
+	If the FileLink object is null, it is a stream, so return 0
+	However, if the FileLink is a file, check if the file has been opened before and remove it from the filmap hashmap
+	If it hasn't been open, just return -1 because it is an error
+
+handleUnlink (method)
+	Get the filename from calling readVirtualMemoryString with the parameter nameAddress
+	Grab the FileLink associated with the filename from above
+	If it does not exist in the filemap hashmap, remove the name from the fileSystem.
+	Otherwise set unlink to true by calling Unlink boolean
+
+handleException (method)
+	Modified the code so that when a non-syscall exception occurs, it will go to default and call handleExit(-1).
+	exitType should specify that the exit that the User Process made was due to an exception
+
+--- CODE WE ADDED -- 
+
+FileDescriptor (class)
+	A class that represents a file descriptor and is created with the parameter OpenFile
+
+Class FileLinks (class)
+	A class that represents a file that has been opened and unlinked
+
+findEmptySlot (method)
+	A method that loops through the numberOfFD (16) to find the first empty slot in the fdArray
+	which keeps track of file descriptors
+
+>>>>> UserKernel.java
+takeSpace (method)
+	A method to remove pages when we need more space
+
+addSpace (method)
+	A method to add newly available pages to linkd list for use by other processes
+
+----------------
+ HOW WE TESTED 
+----------------
+General Testing
+	We utilized the autograder
+	We wrote many print statements to trace our code and value at each step of execution
+	Followed general tips from Professor Voelker to write tests independent of each other 
+
+write.c
+	Provided by Professor Voelker. We used this test to test the basic functionality of write
+	to standard output
+
+write4.c
+	Provided by Professor Voelker. We used this test to test the basic functionality of write
+	to standard output and read from standad input
+
+write10.c
+	Provided by Professor Voelker. We used this test to test the basic functionality of open,
+	creat, close, and read. 
+
+snake.c
+	Provided by Professor Voelker. We used this test to test greater functionality of write 
+	(stresses the system)
+	
+processA.c
+	We created this test to check if join worked. processA first writes to the console and then	
+	executes processB (which just writes to the console and exits), joins processB and returns 
+	to processA. The first join should return 1 because it exits successfully. However, the second
+	join should return -1 because the parent disowned the child and cannot call join again.
+
+processB.c
+	Writes to consoles and exits. File is used with processB to test join
+
+unexpected.c
+	We created this test to check if join worked. unexpected first writes to console and executes
+	dividebyzero.c (which divides 3 by 0, which causes an exception). It should return back to 
+	unexpected file after join. Join should return 0 because there was an exception.
+
+dividebyzero.c
+	Divides an int (3) by 0. File is used with unexpected to test join
+
+--------------
+ CONTRIBUTION
+--------------
+We didn't have a system like assigning each person to a section or a method. We would combine
+our minds when trying to figure out how to write a method. However, when we tested a method, 
+we would have one person test the method, while the other members would attempt to write the 
+next method. 
+	
