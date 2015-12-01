@@ -22,6 +22,7 @@ public class VMProcess extends UserProcess {
 	 */
 	public void saveState() {
 		super.saveState();
+		
 	}
 
 	/**
@@ -29,7 +30,6 @@ public class VMProcess extends UserProcess {
 	 * <tt>UThread.restoreState()</tt>.
 	 */
 	public void restoreState() {
-		super.restoreState();
 	}
 
 	/**
@@ -60,12 +60,64 @@ public class VMProcess extends UserProcess {
 		Processor processor = Machine.processor();
 
 		switch (cause) {
+		case Processor.exceptionTLBMiss: handleTLBMiss(processor.readRegister(Processor.regBadVAddr)); break;
 		default:
 			super.handleException(cause);
 			break;
 		}
 	}
 
+	public void handleTLBMiss(int vaddr){
+		Processor processor = Machine.processor();
+	
+		/** STEP 1 */	
+		// get virtual page number
+		int vpn = processor.pageFromAddress(vaddr);
+		
+		TranslationEntry inputEntry = null;
+
+		// Get size of TLB
+		int tlbSize = processor.getTLBSize();
+
+		// get table of translation entries from userprocess
+		TranslationEntry [] tableOfEntries = pageTable;
+
+		// get the entry that has the same vpn
+		for(int i = 0; i < tlbSize; i++){
+			if(tableOfEntries[i].vpn == vpn){
+				inputEntry = tableOfEntries[i];
+				break;
+			}
+		}
+	
+		// Index in TLB to evict
+		int evictIndex = 0;
+
+		// entry does not exist
+		if(inputEntry == null){
+			return;
+		}
+		else{
+			/** STEP 2 */
+			// Loop through TLB to find invalid entry
+			for(int i = 0; i < tlbSize; i++){
+				TranslationEntry entry = processor.readTLBEntry(i);
+				if(!entry.valid){
+					// need to evict page somehow. I think writeTLBEntry overwrites it?
+					evictIndex = i;
+					break;
+				}
+				// if all of the entries are valid, evict random one
+				if(i == tlbSize - 1){
+					evictIndex = Lib.random(tlbSize);
+					break;
+				}
+			}
+			/** STEP 3 */
+			// Overwrite invalid entry with a valid one. I think its the entry that is passed in. not sure...
+			processor.writeTLBEntry(evictIndex, inputEntry);
+		}
+	}
 	private static final int pageSize = Processor.pageSize;
 
 	private static final char dbgProcess = 'a';
