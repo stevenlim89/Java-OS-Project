@@ -4,6 +4,7 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 import nachos.vm.*;
+import java.util.*;
 
 /**
  * A <tt>UserProcess</tt> that supports demand-paging.
@@ -23,6 +24,18 @@ public class VMProcess extends UserProcess {
 	public void saveState() {
 		super.saveState();
 		
+		Processor processor = Machine.processor();	
+		int tlbSize = processor.getTLBSize();
+
+		for(int i = 0; i < tlbSize; i++){
+			TranslationEntry entry = processor.readTLBEntry(i);
+			if(entry.valid){
+				pageTable[entry.vpn] = entry;
+				entry.valid = false;
+				processor.writeTLBEntry(i, entry);
+				entry.valid = true;
+			}
+		}
 	}
 
 	/**
@@ -39,7 +52,32 @@ public class VMProcess extends UserProcess {
 	 * @return <tt>true</tt> if successful.
 	 */
 	protected boolean loadSections() {
-		return super.loadSections();
+		Processor processor = Machine.processor();
+
+		if(processor.getNumPhysPages() < numPages){
+			coff.close();
+			Lib.debug(dbgProcess, "\tinsufficient physical memory");
+			return false;
+		}
+
+		for(int s = 0; s < coff.getNumSections(); s++){
+			CoffSection section = coff.getSection(s);
+
+			Lib.debug(dbgProcess, "\tinitializing " + section.getName()
+					+ " section (" + section.getLength() + " pages)");
+
+			for (int i = 0; i < section.getLength(); i++) {
+				int vpn = section.getFirstVPN() + i;
+				
+				TranslationEntry entry = pageTable[vpn];
+
+				coffMap.put(vpn, section);
+
+				entry.valid = false;
+				entry.readOnly = section.isReadOnly();
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -98,6 +136,14 @@ public class VMProcess extends UserProcess {
 			// if all of the entries are valid, evict random one
 			if(i == tlbSize - 1){
 				evictIndex = Lib.random(tlbSize);
+				entry = processor.readTLBEntry(evictIndex);
+				
+				// Synch victim's page table entry
+				if(entry.valid){
+					int victimVPN = entry.vpn;
+					pageTable[victimVPN].dirty = entry.dirty;
+					pageTable[victimVPN].used = entry.used;
+				}
 				break;
 			}
 		}
@@ -106,6 +152,8 @@ public class VMProcess extends UserProcess {
 		processor.writeTLBEntry(evictIndex, pte);
 	     //	}
 	}
+
+	private HashMap<Integer, CoffSection> coffMap = new HashMap<Integer, CoffSection>();
 	private static final int pageSize = Processor.pageSize;
 
 	private static final char dbgProcess = 'a';
