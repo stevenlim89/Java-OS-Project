@@ -44,6 +44,17 @@ public class VMKernel extends UserKernel {
 		super.terminate();
 	}
 
+  public static int allocate(int vpn, boolean RO, VMProcess proc) {
+    int ppn = -1;
+
+    if(freePages.size() > 0) {
+      //remove doesn't tell you if empty but pollFirst returns null if empty
+      ppn = ((Integer)freePages.removeFirst()).intValue();
+    }
+
+    return ppn;
+  }
+
 	// dummy variables to make javac smarter
 	private static VMProcess dummy1 = null;
 

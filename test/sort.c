@@ -46,6 +46,7 @@ main()
       return 1;
   }
 
+  printf("sort works\n");
   /* if successful, return 0 */
   return 0;
 }

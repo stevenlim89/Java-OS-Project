@@ -60,7 +60,13 @@ public class VMProcess extends UserProcess {
 			return false;
 		}
 
-		for(int s = 0; s < coff.getNumSections(); s++){
+		pageTable = new TranslationEntry[numPages];
+
+    for (int vpn=0; vpn<numPages; vpn++) {
+      pageTable[vpn] = new TranslationEntry(vpn, -1, false, false, false, false);
+    }
+    
+    for(int s = 0; s < coff.getNumSections(); s++){
 			CoffSection section = coff.getSection(s);
 
 			Lib.debug(dbgProcess, "\tinitializing " + section.getName()
@@ -120,7 +126,12 @@ public class VMProcess extends UserProcess {
 		// use vpn to locate pte in page table
 		TranslationEntry pte = pageTable[vpn];
 
-		// Index in TLB to evict
+		//check if pte is valid or not for handlePageFault
+    if(!pte.valid) {
+      handlePageFault(vpn);
+    }
+    
+    // Index in TLB to evict
 		int evictIndex = 0;
 
 		/** STEP 2 */
@@ -152,6 +163,27 @@ public class VMProcess extends UserProcess {
 		processor.writeTLBEntry(evictIndex, pte);
 	     //	}
 	}
+
+  public void handlePageFault(int vpn) {
+    TranslationEntry pte = pageTable[vpn];
+
+    //if first time initializing entry
+    if(pte.ppn == -1) {
+      pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this); 
+    }
+
+    if(coffMap.get(vpn) == null) {
+      byte[] buffer = new byte[pageSize];
+      byte[] memory = Machine.processor().getMemory();
+      System.arraycopy(buffer, 0, memory, pte.ppn*pageSize, pageSize);
+    }
+    else {
+      CoffSection csection = coffMap.get(vpn);
+      int offset = vpn - csection.getFirstVPN();
+      csection.loadPage(offset, pte.ppn);
+    }
+    pte.valid = true;
+  }
 
 	private HashMap<Integer, CoffSection> coffMap = new HashMap<Integer, CoffSection>();
 	private static final int pageSize = Processor.pageSize;
