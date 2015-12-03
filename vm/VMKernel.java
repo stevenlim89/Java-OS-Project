@@ -44,9 +44,12 @@ public class VMKernel extends UserKernel {
 		super.terminate();
 	}
 
+  //method to lazy load the physical page for that vpn
   public static int allocate(int vpn, boolean RO, VMProcess proc) {
+    //initial value for ppn... use -1 to indicate pin?
     int ppn = -1;
 
+    //make sure there are free pages
     if(freePages.size() > 0) {
       //remove doesn't tell you if empty but pollFirst returns null if empty
       ppn = ((Integer)freePages.removeFirst()).intValue();

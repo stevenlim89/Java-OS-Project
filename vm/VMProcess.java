@@ -33,7 +33,7 @@ public class VMProcess extends UserProcess {
 				pageTable[entry.vpn] = entry;
 				entry.valid = false;
 				processor.writeTLBEntry(i, entry);
-				entry.valid = true;
+        entry.valid = true;
 			}
 		}
 	}
@@ -59,9 +59,12 @@ public class VMProcess extends UserProcess {
 			Lib.debug(dbgProcess, "\tinsufficient physical memory");
 			return false;
 		}
-
+    
+    //allocate the page table
 		pageTable = new TranslationEntry[numPages];
 
+    //allocate the entries but do not initialize yet bc lazy loading
+    //set ppn to -1 to indicate the need to initialize in handleTLBmiss
     for (int vpn=0; vpn<numPages; vpn++) {
       pageTable[vpn] = new TranslationEntry(vpn, -1, false, false, false, false);
     }
@@ -172,16 +175,21 @@ public class VMProcess extends UserProcess {
       pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this); 
     }
 
+    //check if from stack/args bc vpn for coff will be in coffMap
     if(coffMap.get(vpn) == null) {
+      //zero out the whole page
       byte[] buffer = new byte[pageSize];
       byte[] memory = Machine.processor().getMemory();
       System.arraycopy(buffer, 0, memory, pte.ppn*pageSize, pageSize);
     }
+    //load from coff
     else {
+      //get coffsection and offset to load page 
       CoffSection csection = coffMap.get(vpn);
       int offset = vpn - csection.getFirstVPN();
       csection.loadPage(offset, pte.ppn);
     }
+    //set entry to true
     pte.valid = true;
   }
 
