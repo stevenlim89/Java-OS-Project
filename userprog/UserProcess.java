@@ -441,7 +441,7 @@ public class UserProcess {
     protected int handleExit(int status) {
 	for (int i=0; i<maxFiles; i++)
 	    handleClose(i);
-
+	System.out.println("This is the exit status:    " + status);
 	UserKernel.memoryLock.acquire();
 
 	unloadSections();
