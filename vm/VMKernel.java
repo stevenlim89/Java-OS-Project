@@ -54,12 +54,67 @@ public class VMKernel extends UserKernel {
       //remove doesn't tell you if empty but pollFirst returns null if empty
       ppn = ((Integer)freePages.removeFirst()).intValue();
     }
+    else{
+     //sync
+
+     //clock algorithm for victim 
+     	int victimIndex = 0; 
+	int toEvict = 0;
+
+	//evict the page with victimIndex of zero 
+	while(invertedPageTable[victimIndex].getEntry().used == true){
+		//memInfo[victimIndex].getEntry.useBit = 0;
+		victimIndex = (victimIndex+1) % (invertedPageTable.length);
+	}
+	toEvict = victimIndex;
+	victimIndex = (victimIndex+1) % (invertedPageTable.length); 
+     
+	TranslationEntry victim = invertedPageTable[toEvict].getEntry();
+
+     	//if dirty swap out
+     	//if(victim.dirty){
+	//	swapOut(victim);
+	//}
+
+     //invalidate pte and tlb entry of victim 
+    }
 
     return ppn;
   }
+	
+	/*ClutchAF made*/
+	//public void swapOut(TranslationEntry toSwap){
+	
+	//}
 
+	/*ClutchAF made */
+	public static class memInfo{
+		int vpn;
+		VMProcess owner; 
+		//pinned for later
+		
+		public memInfo(int vpn, VMProcess owner){
+			this.vpn = vpn;
+			this.owner = owner;
+		}
+		
+		public TranslationEntry[] getPageTable() {
+			return owner.getPageTable();
+		}
+		public TranslationEntry getEntry() { 
+			return owner.getPageTable()[vpn];
+		}
+
+	}
+ 
 	// dummy variables to make javac smarter
 	private static VMProcess dummy1 = null;
 
 	private static final char dbgVM = 'v';
+	
+	/* ClutchAF variables*/
+	int handOfClock = 0;
+	
+	public static memInfo [] invertedPageTable = new memInfo[Machine.processor().getNumPhysPages()]; 
+
 }

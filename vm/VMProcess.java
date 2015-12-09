@@ -126,15 +126,8 @@ public class VMProcess extends UserProcess {
 		// Get size of TLB
 		int tlbSize = processor.getTLBSize();
 
-		// use vpn to locate pte in page table
-		TranslationEntry pte = pageTable[vpn];
-
-		//check if pte is valid or not for handlePageFault
-    if(!pte.valid) {
-      handlePageFault(vpn);
-    }
-    
-    // Index in TLB to evict
+	    
+    		// Index in TLB to evict
 		int evictIndex = 0;
 
 		/** STEP 2 */
@@ -161,7 +154,15 @@ public class VMProcess extends UserProcess {
 				break;
 			}
 		}
-		
+
+		// use vpn to locate pte in page table
+		TranslationEntry pte = pageTable[vpn];
+
+		//check if pte is valid or not for handlePageFault
+    		if(!pte.valid) {
+      			handlePageFault(vpn);
+    		}
+	
 		/** STEP 3 */
 		processor.writeTLBEntry(evictIndex, pte);
 	     //	}
@@ -174,29 +175,42 @@ public class VMProcess extends UserProcess {
     if(pte.ppn == -1) {
       pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this); 
     }
-
-    //check if from stack/args bc vpn for coff will be in coffMap
-    if(coffMap.get(vpn) == null) {
-      //zero out the whole page
-      byte[] buffer = new byte[pageSize];
-      byte[] memory = Machine.processor().getMemory();
-      System.arraycopy(buffer, 0, memory, pte.ppn*pageSize, pageSize);
-    }
-    //load from coff
-    else {
-      //get coffsection and offset to load page 
-      CoffSection csection = coffMap.get(vpn);
-      int offset = vpn - csection.getFirstVPN();
-      csection.loadPage(offset, pte.ppn);
-    }
+	
+    //if(pte.dirty == true){
+	//VMKernel.swapIn(pte.vpn,this);
+    //}
+    //else{
+    	//check if from stack/args bc vpn for coff will be in coffMap
+    	if(coffMap.get(vpn) == null) {
+      		//zero out the whole page
+     	 	byte[] buffer = new byte[pageSize];
+      		byte[] memory = Machine.processor().getMemory();
+      		System.arraycopy(buffer, 0, memory, pte.ppn*pageSize, pageSize);
+    	}
+    	//load from coff
+    	else {
+      	//get coffsection and offset to load page 
+      		CoffSection csection = coffMap.get(vpn);
+      		int offset = vpn - csection.getFirstVPN();
+      		csection.loadPage(offset, pte.ppn);
+    	}
+    //}
     //set entry to true
     pte.valid = true;
   }
-
-	private HashMap<Integer, CoffSection> coffMap = new HashMap<Integer, CoffSection>();
+	/* ClutchAF made */
+	public TranslationEntry[] getPageTable() {
+		return pageTable;
+	}
+	
+	
 	private static final int pageSize = Processor.pageSize;
 
 	private static final char dbgProcess = 'a';
 
 	private static final char dbgVM = 'v';
+	
+	/* ClutchAF made*/
+	private HashMap<Integer, CoffSection> coffMap = new HashMap<Integer, CoffSection>();
+
 }
