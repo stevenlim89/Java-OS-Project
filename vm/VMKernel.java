@@ -4,6 +4,7 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 import nachos.vm.*;
+import java.util.*;
 
 /**
  * A kernel that can support multiple demand-paging user processes.
@@ -21,6 +22,8 @@ public class VMKernel extends UserKernel {
 	 */
 	public void initialize(String[] args) {
 		super.initialize(args);
+
+		swapList = new LinkedList<Integer>();
 	}
 
 	/**
@@ -64,17 +67,18 @@ public class VMKernel extends UserKernel {
 	//evict the page with victimIndex of zero 
 	while(invertedPageTable[victimIndex].getEntry().used == true){
 		//memInfo[victimIndex].getEntry.useBit = 0;
+		invertedPageTable[victimIndex].getEntry().used = false;
 		victimIndex = (victimIndex+1) % (invertedPageTable.length);
 	}
 	toEvict = victimIndex;
 	victimIndex = (victimIndex+1) % (invertedPageTable.length); 
      
 	TranslationEntry victim = invertedPageTable[toEvict].getEntry();
-
+		
      	//if dirty swap out
-     	//if(victim.dirty){
-	//	swapOut(victim);
-	//}
+     	if(victim.dirty){
+		//swapOut(victimIndex);
+	}
 
      //invalidate pte and tlb entry of victim 
     }
@@ -82,10 +86,23 @@ public class VMKernel extends UserKernel {
     return ppn;
   }
 	
-	/*ClutchAF made*/
-	//public void swapOut(TranslationEntry toSwap){
-	
-	//}
+	/*ClutchAF made 
+ 	 * Swapping from disk to physical memory
+ 	 * 
+ 	 * */
+	public void swapOut(int toSwap){
+		memInfo info = invertedPageTable[toSwap];
+		
+		Integer spn = info.owner.vpnSpnPair.get(info.vpn);
+		if(spn == null){
+			if(swapList.isEmpty()){
+				swapCounter++;
+				swapList.add(swapCounter);
+			} 
+
+			spn = swapList.removeFirst();
+		}
+	}
 
 	/*ClutchAF made */
 	public static class memInfo{
@@ -115,6 +132,10 @@ public class VMKernel extends UserKernel {
 	/* ClutchAF variables*/
 	int handOfClock = 0;
 	
+	public LinkedList<Integer> swapList;
+
+	public int swapCounter = 0;
+
 	public static memInfo [] invertedPageTable = new memInfo[Machine.processor().getNumPhysPages()]; 
 
 }

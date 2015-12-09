@@ -173,7 +173,7 @@ public class VMProcess extends UserProcess {
 
     //if first time initializing entry
     if(pte.ppn == -1) {
-      pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this); 
+      pte.ppn = 0;//VMKernel.allocate(vpn, pte.readOnly, this); 
     }
 	
     //if(pte.dirty == true){
@@ -210,6 +210,8 @@ public class VMProcess extends UserProcess {
 
 	private static final char dbgVM = 'v';
 	
+	public HashMap<Integer, Integer> vpnSpnPair = new HashMap<Integer, Integer>();
+ 	
 	/* ClutchAF made*/
 	private HashMap<Integer, CoffSection> coffMap = new HashMap<Integer, CoffSection>();
 
