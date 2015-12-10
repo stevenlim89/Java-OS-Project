@@ -115,27 +115,40 @@ public class VMProcess extends UserProcess {
 	}
 
 	public void handleTLBMiss(int vaddr){
+		
+		//check validity of vaddr
+		if(vaddr < 0 || vaddr >= numPages*pageSize){
+			//what to put as the exit status? 0 or -1?
+			super.handleExit(0); 
+		}
+		
 		Processor processor = Machine.processor();
 	
-		/** STEP 1 */	
-		// get virtual page number
+		// get vpn 
 		int vpn = processor.pageFromAddress(vaddr);
-		
-		TranslationEntry inputEntry = null;
+		System.out.println("tlb miss vpn: " + vpn);
 
+		// get pte from vpn
+		TranslationEntry pte = pageTable[vpn];
+
+		//IF INVALID = handlePageFault
+    		if(!pte.valid) {
+      			handlePageFault(vpn);
+    		}
+
+		//IF VALID, ALLOCATE TLB ENTRY
 		// Get size of TLB
 		int tlbSize = processor.getTLBSize();
 
-	    
-    		// Index in TLB to evict
+    		// initialize index to tlb to evict page
 		int evictIndex = 0;
 
-		/** STEP 2 */
 		// Loop through TLB to find invalid entry
 		for(int i = 0; i < tlbSize; i++){
 			TranslationEntry entry = processor.readTLBEntry(i);
+			
+			//if invalid, grab index 
 			if(!entry.valid){
-			// need to evict page somehow. I think writeTLBEntry overwrites it?
 				evictIndex = i;
 				break;
 			}
@@ -155,17 +168,10 @@ public class VMProcess extends UserProcess {
 			}
 		}
 
-		// use vpn to locate pte in page table
-		TranslationEntry pte = pageTable[vpn];
-
-		//check if pte is valid or not for handlePageFault
-    		if(!pte.valid) {
-      			handlePageFault(vpn);
-    		}
-	
-		/** STEP 3 */
+		
+		//UPDATE TLB
 		processor.writeTLBEntry(evictIndex, pte);
-	     //	}
+	     
 	}
 
   public void handlePageFault(int vpn) {
@@ -173,18 +179,19 @@ public class VMProcess extends UserProcess {
 
     //if first time initializing entry
     if(pte.ppn == -1) {
-      pte.ppn = 0;//VMKernel.allocate(vpn, pte.readOnly, this); 
+      pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this); 
     }
 	
     //if(pte.dirty == true){
-	//VMKernel.swapIn(pte.vpn,this);
-    //}
-    //else{
+//	VMKernel.swapIn(pte.vpn,this);
+  //  }
+    else{
     	//check if from stack/args bc vpn for coff will be in coffMap
     	if(coffMap.get(vpn) == null) {
       		//zero out the whole page
      	 	byte[] buffer = new byte[pageSize];
       		byte[] memory = Machine.processor().getMemory();
+		pte.dirty = true;
       		System.arraycopy(buffer, 0, memory, pte.ppn*pageSize, pageSize);
     	}
     	//load from coff
@@ -194,22 +201,22 @@ public class VMProcess extends UserProcess {
       		int offset = vpn - csection.getFirstVPN();
       		csection.loadPage(offset, pte.ppn);
     	}
-    //}
+    }
     //set entry to true
     pte.valid = true;
   }
 	/* ClutchAF made */
 	public TranslationEntry[] getPageTable() {
 		return pageTable;
-	}
-	
+	}	
 	
 	private static final int pageSize = Processor.pageSize;
 
 	private static final char dbgProcess = 'a';
 
 	private static final char dbgVM = 'v';
-	
+ 	
+	/* ClutchAF made , maps vpn to spn */	
 	public HashMap<Integer, Integer> vpnSpnPair = new HashMap<Integer, Integer>();
  	
 	/* ClutchAF made*/

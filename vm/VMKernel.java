@@ -24,6 +24,12 @@ public class VMKernel extends UserKernel {
 		super.initialize(args);
 
 		swapList = new LinkedList<Integer>();
+		
+		//creates an OpenFile called swapFile 
+		swapFile = ThreadedKernel.fileSystem.open(nameOfSwap, true);
+		
+		invertedPageTable = new memInfo[Machine.processor().getNumPhysPages()]; 
+ 
 	}
 
 	/**
@@ -54,33 +60,41 @@ public class VMKernel extends UserKernel {
 
     //make sure there are free pages
     if(freePages.size() > 0) {
-      //remove doesn't tell you if empty but pollFirst returns null if empty
       ppn = ((Integer)freePages.removeFirst()).intValue();
     }
     else{
-     //sync
 
-     //clock algorithm for victim 
-     	int victimIndex = 0; 
+        //clock algorithm for victim 
+     	int clockhand = 0; //physical page number 
 	int toEvict = 0;
 
 	//evict the page with victimIndex of zero 
-	while(invertedPageTable[victimIndex].getEntry().used == true){
-		//memInfo[victimIndex].getEntry.useBit = 0;
-		invertedPageTable[victimIndex].getEntry().used = false;
-		victimIndex = (victimIndex+1) % (invertedPageTable.length);
+	memInfo mi  = null; 
+	
+	for(int i = 0; i <  invertedPageTable.length; i++){
+		//TODO check pinned if pinned
+		 mi = invertedPageTable[i]; 
+		 mi.getEntry().used = true;
+
+
+		invertedPageTable[clockhand].getEntry().used = false;
+		clockhand = (clockhand+1) % (invertedPageTable.length);
 	}
-	toEvict = victimIndex;
-	victimIndex = (victimIndex+1) % (invertedPageTable.length); 
+	toEvict = clockhand;
+	clockhand = (clockhand+1) % (invertedPageTable.length); 
      
 	TranslationEntry victim = invertedPageTable[toEvict].getEntry();
 		
      	//if dirty swap out
      	if(victim.dirty){
-		//swapOut(victimIndex);
+		//not clockhand right? should i put the RO, proc, and vpn as parameters??
+		swapOut(toEvict, vpn);
 	}
-
-     //invalidate pte and tlb entry of victim 
+	//call swapIn	
+	//TODO create load page method to handle putting swap or coff or new stack page in memoryarray
+	//sync tlb
+   
+	  //invalidate pte and tlb entry of victim 
     }
 
     return ppn;
@@ -88,39 +102,57 @@ public class VMKernel extends UserKernel {
 	
 	/*ClutchAF made 
  	 * Swapping from disk to physical memory
- 	 * 
+ 	 * toSwap - invertedPageTable index of the evicted page?
  	 * */
-	public void swapOut(int toSwap){
+	public void swapOut(int toSwap, int vpn){
 		memInfo info = invertedPageTable[toSwap];
-		
-		Integer spn = info.owner.vpnSpnPair.get(info.vpn);
-		if(spn == null){
-			if(swapList.isEmpty()){
-				swapCounter++;
-				swapList.add(swapCounter);
-			} 
 
-			spn = swapList.removeFirst();
+		Integer writeSpn = vpnSpnPair.get(info.getEntry.vpn); 
+		//if no mapping exists, increase swapFile 
+		if(writeSpn == null){
+			writeSpn = lastSwapPage++; 
+			vpnSpnPair.put(vpn,writeSpn);
 		}
+
+		if(info.getEntry().readOnly == true){
+			return;
+			//TODO put in load page as well
+			//coffMap(get the coffsection to vpn)
+			//section.loadPage(writeSpn,ppn); 
+		}
+		else{
+			if(info.getEntry().dirty == true){
+				swapFile.write(writeSpn*pageSize, memory, ppn*pageSize, pageSize); 
+			}
+			TranslationEntry toInvalidate =  info.getEntry();
+			toInvalidate.valid = false; 
+		}
+	//TODO put in load page to set entry valid
+	//	TranslationEntry entry = pageTable[vpn];
+	//	entry.valid = true; 
+
 	}
 
 	/*ClutchAF made */
+	//perhaps put PID, TranslationEntry, pinned ?
 	public static class memInfo{
 		int vpn;
 		VMProcess owner; 
 		//pinned for later
-		
-		public memInfo(int vpn, VMProcess owner){
+		int pinCount = 0;
+	
+		public memInfo(int vpn, VMProcess owner){// TranslationEntry te){
 			this.vpn = vpn;
 			this.owner = owner;
+			this.te = owner.getPageTable()[vpn]; 
 		}
 		
 		public TranslationEntry[] getPageTable() {
 			return owner.getPageTable();
 		}
-		public TranslationEntry getEntry() { 
-			return owner.getPageTable()[vpn];
-		}
+		//public TranslationEntry getEntry() { 
+		//	return owner.getPageTable()[vpn];
+		//}
 
 	}
  
@@ -130,12 +162,16 @@ public class VMKernel extends UserKernel {
 	private static final char dbgVM = 'v';
 	
 	/* ClutchAF variables*/
-	int handOfClock = 0;
-	
+	private int lastSwapPage = 0; 
+
+	public OpenFile swapFile; 
+
+	public String nameOfSwap = "clutchaf";
+
 	public LinkedList<Integer> swapList;
 
 	public int swapCounter = 0;
 
-	public static memInfo [] invertedPageTable = new memInfo[Machine.processor().getNumPhysPages()]; 
+	public static memInfo [] invertedPageTable;
 
 }
