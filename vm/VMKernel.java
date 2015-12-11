@@ -88,7 +88,7 @@ public class VMKernel extends UserKernel {
      	if(victim.dirty){
 		swapOut(toEvict, vpn);
 	}
-	swapIn(toEvict, invertedPageTable[toEvict].owner);
+	swapIn(vpn, toEvict, invertedPageTable[toEvict].owner);
 	//call swapIn	
    
 	  //invalidate pte and tlb entry of victim
@@ -124,7 +124,6 @@ public class VMKernel extends UserKernel {
 			//HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
 			//CoffSection section = coffMap.get(vpn);
 			//section.loadPage(writeSpn, info.getEntry.ppn);
-			//section.loadPage(writeSpn,ppn); 
 		}
 		else{
 			byte [] memory = Machine.processor().getMemory();
@@ -143,8 +142,7 @@ public class VMKernel extends UserKernel {
 	
 	// STEVEN
 	// Swap page from disk to physical memory
-	private static void swapIn(int ppn, VMProcess process){
-		invertedPageTable[ppn] = new memInfo(ppn, process);
+	private static void swapIn(int vpn, int ppn, VMProcess process){
 		System.out.println("SwapIn");
 		memInfo info = invertedPageTable[ppn];
 
@@ -152,15 +150,16 @@ public class VMKernel extends UserKernel {
 		
 		HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
 
-		Integer readSpn = info.owner.vpnSpnPair.get(info.te.vpn);
-		
+		Integer readSpn = info.owner.vpnSpnPair.get(vpn);
+		TranslationEntry [] pageTable = info.getPageTable();
+
 		if(readSpn != null){
-			swapFile.read(readSpn*pageSize, memory, info.te.ppn*pageSize, pageSize);
+			swapFile.read(readSpn*pageSize, memory, ppn*pageSize, pageSize);
 				
 		}else{
-			CoffSection section = coffMap.get(info.te.vpn);
-			int offset = info.te.vpn - section.getFirstVPN();
-			section.loadPage(offset, info.te.ppn);
+			CoffSection section = coffMap.get(vpn);
+			//int offset = info.te.vpn - section.getFirstVPN();
+			section.loadPage(readSpn, ppn);
 		}
 		/*if(coffMap.get(ppn) == null){
 			System.out.println("Coff map is null");
@@ -176,7 +175,9 @@ public class VMKernel extends UserKernel {
 			int offset = ppn - csection.getFirstVPN();
 			csection.loadPage(offset, info.te.ppn);
 		}*/
-		info.te.valid = true;
+		TranslationEntry tlbEntry = pageTable[vpn];
+		tlbEntry.valid = true;
+		invertedPageTable[ppn] = new memInfo(vpn, process);
 	}
 
 	/*ClutchAF made */

@@ -55,8 +55,7 @@ public class VMProcess extends UserProcess {
 	 */
 	protected boolean loadSections() {
 		Processor processor = Machine.processor();
-
-		if(processor.getNumPhysPages() < numPages){
+		if(VMKernel.freePages.size() < numPages){
 			coff.close();
 			Lib.debug(dbgProcess, "\tinsufficient physical memory");
 			return false;
