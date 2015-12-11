@@ -60,7 +60,7 @@ public class VMKernel extends UserKernel {
     int ppn = -1;
 
     //make sure there are free pages
-    if(freePages.size() != 0) {
+    if(freePages.size() > 0) {
       ppn = ((Integer)freePages.removeFirst()).intValue();
     }
     else{
@@ -90,7 +90,6 @@ public class VMKernel extends UserKernel {
 	}
 	swapIn(toEvict, invertedPageTable[toEvict].owner);
 	//call swapIn	
-	//TODO create load page method to handle putting swap or coff or new stack page in memoryarray
    
 	  //invalidate pte and tlb entry of victim
 	  invertedPageTable[victim.ppn] = null;
@@ -153,13 +152,17 @@ public class VMKernel extends UserKernel {
 		
 		HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
 
-		Integer readSpn = info.owner.vpnSpnPair.get(ppn);
+		Integer readSpn = info.owner.vpnSpnPair.get(info.te.vpn);
 		
 		if(readSpn != null){
 			swapFile.read(readSpn*pageSize, memory, info.te.ppn*pageSize, pageSize);
-			return;	
+				
+		}else{
+			CoffSection section = coffMap.get(info.te.vpn);
+			int offset = info.te.vpn - section.getFirstVPN();
+			section.loadPage(offset, info.te.ppn);
 		}
-		if(coffMap.get(ppn) == null){
+		/*if(coffMap.get(ppn) == null){
 			System.out.println("Coff map is null");
 			//zero out the whole page
      	 		byte[] buffer = new byte[pageSize];
@@ -172,7 +175,7 @@ public class VMKernel extends UserKernel {
 			CoffSection csection = coffMap.get(ppn);
 			int offset = ppn - csection.getFirstVPN();
 			csection.loadPage(offset, info.te.ppn);
-		}
+		}*/
 		info.te.valid = true;
 	}
 

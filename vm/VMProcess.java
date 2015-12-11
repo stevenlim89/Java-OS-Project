@@ -177,16 +177,11 @@ public class VMProcess extends UserProcess {
 	}
 
   public void handlePageFault(int vpn) {
-    TranslationEntry pte = pageTable[vpn];
-
-    //if first time initializing entry
-      pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this); 
+    	TranslationEntry pte = pageTable[vpn];
+	pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this);
 	
-    //if(pte.dirty == true){
-//	VMKernel.swapIn(pte.vpn,this);
-  //  }
-    	//check if from stack/args bc vpn for coff will be in coffMap
-    	/*if(coffMap.get(vpn) == null) {
+	//check if from stack/args bc vpn for coff will be in coffMap
+	if(coffMap.get(vpn) == null) {
       		//zero out the whole page
      	 	byte[] buffer = new byte[pageSize];
       		byte[] memory = Machine.processor().getMemory();
@@ -194,14 +189,15 @@ public class VMProcess extends UserProcess {
       		System.arraycopy(buffer, 0, memory, pte.ppn*pageSize, pageSize);
     	}
     	//load from coff
-    	else {
+    	else if(vpnSpnPair.get(vpn) == null){
       	//get coffsection and offset to load page 
       		CoffSection csection = coffMap.get(vpn);
       		int offset = vpn - csection.getFirstVPN();
       		csection.loadPage(offset, pte.ppn);
-    	}*/
-    //set entry to true
-    pte.valid = true;
+    	}
+	
+	//set entry to true
+    	pte.valid = true;
   }
 	/* ClutchAF made */
 	public TranslationEntry[] getPageTable() {

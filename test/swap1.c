@@ -52,7 +52,9 @@ main (int argc, char *argv[])
 {
     int i;
     for (i = 0; i < (sizeof data) / (sizeof (int)); i++) {
-	if (data[i] != i) {
+	//printf("Before print statment");
+	if (data[i] != i){
+	//	printf("Inside the if statement");
 	    // encode both the index and the bad data value in the status...
 	    // if i=128 and data[i]=0, then s=1280000
 	    // if i=128 and data[i]=100, then s=1280100
