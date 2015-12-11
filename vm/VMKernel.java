@@ -61,16 +61,15 @@ public class VMKernel extends UserKernel {
 
     //make sure there are free pages
     if(freePages.size() > 0) {
-      ppn = ((Integer)freePages.removeFirst()).intValue();
+      	ppn = ((Integer)freePages.removeFirst()).intValue();
     }
     else{
-	//TODO make clockhand instance var
-        //clock algorithm for victim 
+    	//clock algorithm for victim 
 	int toEvict = 0;
 
-	//evict the page with victimIndex of zero 
-	memInfo mi  = null; 
-	// change back to while
+	memInfo mi  = null; 	
+	System.out.println("ipt: " + invertedPageTable[clockhand]); 
+
 	while(invertedPageTable[clockhand].te.used == true){	
 		//TODO check pinned if pinned
 		invertedPageTable[clockhand].te.used = false;
@@ -88,22 +87,19 @@ public class VMKernel extends UserKernel {
      	if(victim.dirty){
 		swapOut(toEvict, vpn);
 	}
-	swapIn(vpn, toEvict, invertedPageTable[toEvict].owner);
-	//call swapIn	
    
-	  //invalidate pte and tlb entry of victim
-	  invertedPageTable[victim.ppn] = null;
-	  pageTable[victim.vpn] = null;
-    }
-
-    return ppn;
-  }
+   //invalidate pte and tlb entry of victim
+   invertedPageTable[victim.ppn] = null;
+   pageTable[victim.vpn] = null;
+}
+   return ppn;
+ }
 	
 	/*ClutchAF made 
  	 * Swapping from physical memory to disk
  	 * toSwap - invertedPageTable index of the evicted page?
  	 * */
-	private static void swapOut(int toSwap, int vpn){
+	public static void swapOut(int toSwap, int vpn){
 		// toSwap is index from physical memory that we want to evict
 		memInfo info = invertedPageTable[toSwap];
 
@@ -118,12 +114,6 @@ public class VMKernel extends UserKernel {
 
 		if(info.te.readOnly == true){
 			return;
-			//TODO put in load page as well
-			//coffMap(get the coffsection to vpn)
-			// STEVEN
-			//HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
-			//CoffSection section = coffMap.get(vpn);
-			//section.loadPage(writeSpn, info.getEntry.ppn);
 		}
 		else{
 			byte [] memory = Machine.processor().getMemory();
@@ -132,35 +122,34 @@ public class VMKernel extends UserKernel {
 			}
 			TranslationEntry toInvalidate = info.te;
 			toInvalidate.valid = false; 
+			//TODO ask why is this here.. lol
 			info.owner.vpnSpnPair.remove(info.te.vpn);
-		}
-	//TODO put in load page to set entry valid
-	//	TranslationEntry entry = pageTable[vpn];
-	//	entry.valid = true; 
-
+		} 
 	}
 	
 	// STEVEN
 	// Swap page from disk to physical memory
-	private static void swapIn(int vpn, int ppn, VMProcess process){
+	public static void swapIn(int vpn, VMProcess process){//, int ppn, VMProcess process){
 		System.out.println("SwapIn");
-		memInfo info = invertedPageTable[ppn];
-
+		//memInfo info = invertedPageTable[ppn];
+		memInfo mi = new memInfo(vpn, process); 
 		byte [] memory = Machine.processor().getMemory();
 		
-		HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
+		//HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
+		HashMap<Integer, CoffSection> coffMap = process.getCoffMap(); 
 
-		Integer readSpn = info.owner.vpnSpnPair.get(vpn);
-		TranslationEntry [] pageTable = info.getPageTable();
+		Integer readSpn = mi.owner.vpnSpnPair.get(vpn);
+		TranslationEntry [] pageTable = mi.getPageTable();
 
 		if(readSpn != null){
-			swapFile.read(readSpn*pageSize, memory, ppn*pageSize, pageSize);
+			swapFile.read(readSpn*pageSize, memory, mi.te.ppn*pageSize,pageSize);//ppn*pageSize, pageSize);
 				
-		}else{
+		}/*else{
 			CoffSection section = coffMap.get(vpn);
-			//int offset = info.te.vpn - section.getFirstVPN();
-			section.loadPage(readSpn, ppn);
-		}
+			 int offset = mi.te.vpn - section.getFirstVPN();
+			//section.loadPage(readSpn, ppn);
+			section.loadPage(offset, mi.te.ppn); 
+		}*/
 		/*if(coffMap.get(ppn) == null){
 			System.out.println("Coff map is null");
 			//zero out the whole page
@@ -177,7 +166,7 @@ public class VMKernel extends UserKernel {
 		}*/
 		TranslationEntry tlbEntry = pageTable[vpn];
 		tlbEntry.valid = true;
-		invertedPageTable[ppn] = new memInfo(vpn, process);
+		invertedPageTable[mi.te.ppn] = mi; // new memInfo(vpn, process);
 	}
 
 	/*ClutchAF made */

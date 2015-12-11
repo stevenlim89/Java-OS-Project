@@ -55,11 +55,11 @@ public class VMProcess extends UserProcess {
 	 */
 	protected boolean loadSections() {
 		Processor processor = Machine.processor();
-		if(VMKernel.freePages.size() < numPages){
+		/*if(VMKernel.freePages.size() < numPages){
 			coff.close();
 			Lib.debug(dbgProcess, "\tinsufficient physical memory");
 			return false;
-		}
+		}*/
     
     //allocate the page table
 		pageTable = new TranslationEntry[numPages];
@@ -116,7 +116,8 @@ public class VMProcess extends UserProcess {
 	}
 
 	public void handleTLBMiss(int vaddr){
-		
+	System.out.println("vaddr: " + vaddr); 
+
 		//check validity of vaddr
 		if(vaddr < 0 || vaddr >= numPages*pageSize){
 			//what to put as the exit status? 0 or -1?
@@ -190,10 +191,17 @@ public class VMProcess extends UserProcess {
     	//load from coff
     	else if(vpnSpnPair.get(vpn) == null){
       	//get coffsection and offset to load page 
-      		CoffSection csection = coffMap.get(vpn);
+      		if(pte.readOnly == false){
+			pte.dirty = true;
+		}
+		CoffSection csection = coffMap.get(vpn);
       		int offset = vpn - csection.getFirstVPN();
       		csection.loadPage(offset, pte.ppn);
+
     	}
+	else{
+		VMKernel.swapIn(pte.vpn,this);
+	}
 	
 	//set entry to true
     	pte.valid = true;
