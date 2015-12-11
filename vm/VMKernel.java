@@ -55,7 +55,7 @@ public class VMKernel extends UserKernel {
 	}
 
   //method to lazy load the physical page for that vpn
-  public static int allocate(int vpn, boolean RO, VMProcess proc) {
+  public static int allocate(int vpn, VMProcess proc) {
     //initial value for ppn... use -1 to indicate pin?
     int ppn = -1;
 

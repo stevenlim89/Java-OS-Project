@@ -116,7 +116,6 @@ public class VMProcess extends UserProcess {
 	}
 
 	public void handleTLBMiss(int vaddr){
-	System.out.println("vaddr: " + vaddr); 
 
 		//check validity of vaddr
 		if(vaddr < 0 || vaddr >= numPages*pageSize){
@@ -178,8 +177,8 @@ public class VMProcess extends UserProcess {
 
   public void handlePageFault(int vpn) {
     	TranslationEntry pte = pageTable[vpn];
-	pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this);
-	
+	pte.ppn = VMKernel.allocate(vpn, this);
+	System.out.prinln("pte.ppn after allocate: " + pte.ppn); 	
 	//check if from stack/args bc vpn for coff will be in coffMap
 	if(coffMap.get(vpn) == null) {
       		//zero out the whole page
@@ -194,6 +193,7 @@ public class VMProcess extends UserProcess {
       		if(pte.readOnly == false){
 			pte.dirty = true;
 		}
+		System.out.println("pte.ppn: " + pte.ppn);
 		CoffSection csection = coffMap.get(vpn);
       		int offset = vpn - csection.getFirstVPN();
       		csection.loadPage(offset, pte.ppn);
@@ -201,10 +201,12 @@ public class VMProcess extends UserProcess {
     	}
 	else{
 		VMKernel.swapIn(pte.vpn,this);
-	}
-	
+	}	
 	//set entry to true
     	pte.valid = true;
+ 	VMKernel.memInfo info = new VMKernel.memInfo(vpn,this); 	
+	VMKernel.invertedPageTable[pte.ppn] = info; 
+
   }
 	/* ClutchAF made */
 	public TranslationEntry[] getPageTable() {
