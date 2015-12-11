@@ -15,6 +15,8 @@ public class VMProcess extends UserProcess {
 	 */
 	public VMProcess() {
 		super();
+		vpnSpnPair = new HashMap<Integer, Integer>();
+		coffMap = new HashMap<Integer, CoffSection>();
 	}
 
 	/**
@@ -178,16 +180,13 @@ public class VMProcess extends UserProcess {
     TranslationEntry pte = pageTable[vpn];
 
     //if first time initializing entry
-    if(pte.ppn == -1) {
       pte.ppn = VMKernel.allocate(vpn, pte.readOnly, this); 
-    }
 	
     //if(pte.dirty == true){
 //	VMKernel.swapIn(pte.vpn,this);
   //  }
-    else{
     	//check if from stack/args bc vpn for coff will be in coffMap
-    	if(coffMap.get(vpn) == null) {
+    	/*if(coffMap.get(vpn) == null) {
       		//zero out the whole page
      	 	byte[] buffer = new byte[pageSize];
       		byte[] memory = Machine.processor().getMemory();
@@ -200,8 +199,7 @@ public class VMProcess extends UserProcess {
       		CoffSection csection = coffMap.get(vpn);
       		int offset = vpn - csection.getFirstVPN();
       		csection.loadPage(offset, pte.ppn);
-    	}
-    }
+    	}*/
     //set entry to true
     pte.valid = true;
   }
@@ -210,6 +208,10 @@ public class VMProcess extends UserProcess {
 		return pageTable;
 	}	
 	
+	public HashMap<Integer, CoffSection> getCoffMap(){
+		return coffMap;
+	}
+	
 	private static final int pageSize = Processor.pageSize;
 
 	private static final char dbgProcess = 'a';
@@ -217,9 +219,8 @@ public class VMProcess extends UserProcess {
 	private static final char dbgVM = 'v';
  	
 	/* ClutchAF made , maps vpn to spn */	
-	public HashMap<Integer, Integer> vpnSpnPair = new HashMap<Integer, Integer>();
+	public HashMap<Integer, Integer> vpnSpnPair;
  	
 	/* ClutchAF made*/
-	private HashMap<Integer, CoffSection> coffMap = new HashMap<Integer, CoffSection>();
-
+	private HashMap<Integer, CoffSection> coffMap;
 }
