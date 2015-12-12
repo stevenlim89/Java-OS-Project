@@ -86,31 +86,19 @@ public class VMKernel extends UserKernel {
 		if(info.te.used){
 			info.te.used = false;
 		}
-		else{	
-			if(!info.pinned){
-				break;
-			}
+		else if(!info.pinned){
+			break;
 		}
 		//increment
 		clockhand = (clockhand+1) % (invertedPageTable.length);
 	}
-	/*while(invertedPageTable[clockhand].te.used == true){	
-		//TODO check pinned if pinned
-		memInfo info = invertedPageTable[clockhand];
-		info.te.used = false;
-		clockhand = (clockhand+1) % (invertedPageTable.length);
-		if(invertedPageTable[clockhand].pinned == true){
-			clockhand = (clockhand+1) % (invertedPageTable.length);	
-		}
-	}*/
+	
 	toEvict = clockhand;
 	clockhand = (clockhand+1) % (invertedPageTable.length); 
      
 	TranslationEntry victim = invertedPageTable[toEvict].te;
 	// Sync tlb entries
 	TranslationEntry [] pageTable = invertedPageTable[toEvict].getPageTable();
-	pageTable[victim.vpn].dirty = victim.dirty;
-	pageTable[victim.vpn].used = victim.used;	
      	
 	//if dirty swap out
      	if(victim.dirty){

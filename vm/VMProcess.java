@@ -110,7 +110,7 @@ public class VMProcess extends UserProcess {
 				return -1;
 	   		 entry.dirty = true;
 		}
-		
+		//System.out.println("This is the entry.ppn:    " + entry.ppn);
 		VMKernel.invertedPageTable[entry.ppn].pinned = true;
 		// counter to increment number of pages that are pinned in physmem
 		VMKernel.pinCounter++;
@@ -240,10 +240,10 @@ public class VMProcess extends UserProcess {
 	
 	/* ClutchAF made */
 	public void syncTLBPTE( TranslationEntry te ){
-		pageTable[te.vpn].dirty = te.dirty;
-		pageTable[te.vpn].valid = te.valid;
-		pageTable[te.vpn].used = te.used;
-		pageTable[te.vpn].readOnly = te.readOnly;
+		if(te.valid){
+			pageTable[te.vpn].dirty = te.dirty;
+			pageTable[te.vpn].used = te.used;
+		}
 	}
 
 	/* ClutchAF made */
