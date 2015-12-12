@@ -177,36 +177,46 @@ public class VMProcess extends UserProcess {
 
   public void handlePageFault(int vpn) {
     	TranslationEntry pte = pageTable[vpn];
-	pte.ppn = VMKernel.allocate(vpn, this);
-	System.out.prinln("pte.ppn after allocate: " + pte.ppn); 	
-	//check if from stack/args bc vpn for coff will be in coffMap
+	
+	int ppn = VMKernel.allocate(vpn, this);
+
+	System.out.println("pte.ppn after alloc: " + pte.ppn);
 	if(coffMap.get(vpn) == null) {
       		//zero out the whole page
+      		System.out.println("STACK");
      	 	byte[] buffer = new byte[pageSize];
       		byte[] memory = Machine.processor().getMemory();
 		pte.dirty = true;
-      		System.arraycopy(buffer, 0, memory, pte.ppn*pageSize, pageSize);
+		
+		if( pte.ppn == -1){
+      		System.arraycopy(buffer, 0, memory, ppn*pageSize, pageSize);
+		}
+		else{
+			System.out.println("I am in first swapin");
+			VMKernel.swapIn(pte.vpn, this);
+		}
     	}
-    	//load from coff
     	else if(vpnSpnPair.get(vpn) == null){
-      	//get coffsection and offset to load page 
+		System.out.println("COFF");
       		if(pte.readOnly == false){
 			pte.dirty = true;
 		}
-		System.out.println("pte.ppn: " + pte.ppn);
 		CoffSection csection = coffMap.get(vpn);
       		int offset = vpn - csection.getFirstVPN();
-      		csection.loadPage(offset, pte.ppn);
+		System.out.println("offset: " + offset + "\npte.ppn: " + pte.ppn);
+      		csection.loadPage(offset, ppn);
 
     	}
 	else{
+		System.out.println("SWAP");
 		VMKernel.swapIn(pte.vpn,this);
 	}	
 	//set entry to true
     	pte.valid = true;
+	pte.ppn = ppn;
  	VMKernel.memInfo info = new VMKernel.memInfo(vpn,this); 	
 	VMKernel.invertedPageTable[pte.ppn] = info; 
-
+	
   }
 	/* ClutchAF made */
 	public TranslationEntry[] getPageTable() {

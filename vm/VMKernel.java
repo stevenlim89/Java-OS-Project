@@ -68,7 +68,6 @@ public class VMKernel extends UserKernel {
 	int toEvict = 0;
 
 	memInfo mi  = null; 	
-	System.out.println("ipt: " + invertedPageTable[clockhand]); 
 
 	while(invertedPageTable[clockhand].te.used == true){	
 		//TODO check pinned if pinned
@@ -83,15 +82,20 @@ public class VMKernel extends UserKernel {
 	TranslationEntry [] pageTable = invertedPageTable[toEvict].getPageTable();
 	pageTable[victim.vpn].dirty = victim.dirty;
 	pageTable[victim.vpn].used = victim.used;	
-     	//if dirty swap out
+     	
+	//if dirty swap out
      	if(victim.dirty){
 		swapOut(toEvict, vpn);
 	}
-   
-   //invalidate pte and tlb entry of victim
-   invertedPageTable[victim.ppn] = null;
-   pageTable[victim.vpn] = null;
-}
+   	
+	ppn = toEvict;
+   	//invalidate pte and tlb entry of victim
+   	invertedPageTable[victim.ppn].te.valid = false;
+  	pageTable[victim.vpn].valid = false;
+	
+	//sync tlb and check if valid && ppn matches, write a false tlb entry 
+	for
+   }
    return ppn;
  }
 	
@@ -99,9 +103,16 @@ public class VMKernel extends UserKernel {
  	 * Swapping from physical memory to disk
  	 * toSwap - invertedPageTable index of the evicted page?
  	 * */
-	public static void swapOut(int toSwap, int vpn){
+	public static void swapOut(int toSwap, int vpn)
+	{
+		byte [] memory = Machine.processor().getMemory();
+
 		// toSwap is index from physical memory that we want to evict
 		memInfo info = invertedPageTable[toSwap];
+
+		if(info.te.readOnly == true || ! info.te.dirty ){
+			return;
+		}
 
 		// Have to get swap page associated to toSwap
 		Integer writeSpn = info.owner.vpnSpnPair.get(info.te.vpn);
@@ -112,31 +123,24 @@ public class VMKernel extends UserKernel {
 			info.owner.vpnSpnPair.put(vpn,writeSpn);
 		}
 
-		if(info.te.readOnly == true){
-			return;
-		}
-		else{
-			byte [] memory = Machine.processor().getMemory();
-			if(info.te.dirty == true){
-				swapFile.write(writeSpn*pageSize, memory, info.te.ppn*pageSize, pageSize); 
-			}
-			TranslationEntry toInvalidate = info.te;
-			toInvalidate.valid = false; 
-			//TODO ask why is this here.. lol
-			info.owner.vpnSpnPair.remove(info.te.vpn);
-		} 
+		swapFile.write(writeSpn*pageSize, memory, info.te.ppn*pageSize, pageSize); 
+
+		TranslationEntry toInvalidate = info.te;
+		toInvalidate.valid = false; 
+		info.owner.vpnSpnPair.remove(toInvalidate.vpn);
 	}
 	
 	// STEVEN
 	// Swap page from disk to physical memory
 	public static void swapIn(int vpn, VMProcess process){//, int ppn, VMProcess process){
 		System.out.println("SwapIn");
-		//memInfo info = invertedPageTable[ppn];
+		
 		memInfo mi = new memInfo(vpn, process); 
+		
 		byte [] memory = Machine.processor().getMemory();
 		
 		//HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
-		HashMap<Integer, CoffSection> coffMap = process.getCoffMap(); 
+		//HashMap<Integer, CoffSection> coffMap = process.getCoffMap(); 
 
 		Integer readSpn = mi.owner.vpnSpnPair.get(vpn);
 		TranslationEntry [] pageTable = mi.getPageTable();
@@ -144,29 +148,10 @@ public class VMKernel extends UserKernel {
 		if(readSpn != null){
 			swapFile.read(readSpn*pageSize, memory, mi.te.ppn*pageSize,pageSize);//ppn*pageSize, pageSize);
 				
-		}/*else{
-			CoffSection section = coffMap.get(vpn);
-			 int offset = mi.te.vpn - section.getFirstVPN();
-			//section.loadPage(readSpn, ppn);
-			section.loadPage(offset, mi.te.ppn); 
-		}*/
-		/*if(coffMap.get(ppn) == null){
-			System.out.println("Coff map is null");
-			//zero out the whole page
-     	 		byte[] buffer = new byte[pageSize];
-			info.te.dirty = true;
-      			System.arraycopy(buffer, 0, memory, info.te.ppn*pageSize, pageSize);
-			
-		}
-		else{
-			System.out.println("No page loading");
-			CoffSection csection = coffMap.get(ppn);
-			int offset = ppn - csection.getFirstVPN();
-			csection.loadPage(offset, info.te.ppn);
-		}*/
-		TranslationEntry tlbEntry = pageTable[vpn];
+		}		
+		TranslationEntry tlbEntry = mi.te; //pageTable[vpn];
 		tlbEntry.valid = true;
-		invertedPageTable[mi.te.ppn] = mi; // new memInfo(vpn, process);
+		mi.owner.vpnSpnPair.put(tlbEntry.vpn, readSpn); 
 	}
 
 	/*ClutchAF made */
