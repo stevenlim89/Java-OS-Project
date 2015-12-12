@@ -97,28 +97,40 @@ public class VMProcess extends UserProcess {
 		super.unloadSections();
 	}
 
-	public int pinVirtualPage(int vpn, boolean beingWritten){
-		TranslationEntry entry = pageTable[vpn];
-
+	public int pinVirtualPage(int vpn, boolean beingWritten){	
 		if (vpn < 0 || vpn >= pageTable.length)
 	    		return -1;
-
+		TranslationEntry entry = pageTable[vpn];
+		// Dont want to return -1. Want to get valid entry in phys mem
 		if (!entry.valid || entry.vpn != vpn)
-	    		return -1;
+	    		handlePageFault(vpn);
 
 		if (beingWritten) {
 	    		if (entry.readOnly)
 				return -1;
 	   		 entry.dirty = true;
 		}
+		
+		VMKernel.invertedPageTable[entry.ppn].pinned = true;
+		// counter to increment number of pages that are pinned in physmem
+		VMKernel.pinCounter++;
 
 		entry.used = true;
-
 		return entry.ppn;
-
 	}
 
+	public void unpinVirtualPage(int vpn){
+		TranslationEntry entry = pageTable[vpn];
+		VMKernel.pinCounter--;
 
+		VMKernel.invertedPageTable[entry.ppn].pinned = false;
+		
+		VMKernel.pinLock.acquire();
+		//if(VMKernel.pinCounter == 0){
+			VMKernel.pinCond.wake();
+		//}
+		VMKernel.pinLock.release();
+	}
 	/**
 	 * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
 	 * . The <i>cause</i> argument identifies which exception occurred; see the
@@ -146,7 +158,6 @@ public class VMProcess extends UserProcess {
 		Processor processor = Machine.processor();
 	
 		int vpn = processor.pageFromAddress(vaddr);
-		System.out.println("tlb miss: " + vpn); 
 
 		TranslationEntry pte = pageTable[vpn];
 
@@ -189,11 +200,8 @@ public class VMProcess extends UserProcess {
 	
 	int ppn = VMKernel.allocate(vpn, this);
 
-	System.out.println("alloc ppn: " + ppn);
-
 	//if it's a stack/args page
 	if(coffMap.get(vpn) == null) {
-      		System.out.println("STACK");
 	
 		//new stack page	
 		if( pte.ppn == -1)
@@ -205,25 +213,21 @@ public class VMProcess extends UserProcess {
 		}
 		else //load stack page from swap
 		{
-			System.out.println("I am in first swapin");
 			VMKernel.swapIn(pte.vpn, this, ppn);
 		}
     	}
 	//if loading from coff
     	else if(vpnSpnPair.get(vpn) == null){
-		System.out.println("COFF");
       		if(pte.readOnly == false){
 			pte.dirty = true;
 		}
 		CoffSection csection = coffMap.get(vpn);
       		int offset = vpn - csection.getFirstVPN();
-		System.out.println("offset: " + offset + "\npte.ppn: " + pte.ppn);
       		csection.loadPage(offset, ppn);
 
     	}
 	//oading coff page from swap
 	else{
-		System.out.println("SWAP");
 		VMKernel.swapIn(pte.vpn,this,ppn);
 	}	
 	//set entry to true

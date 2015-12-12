@@ -25,6 +25,9 @@ public class VMKernel extends UserKernel {
 
 		swapList = new LinkedList<Integer>();
 		
+		pinLock = new Lock();
+		pinCond = new Condition(pinLock);
+
 		//creates an OpenFile called swapFile 
 		swapFile = ThreadedKernel.fileSystem.open(nameOfSwap, true);
 		
@@ -71,14 +74,35 @@ public class VMKernel extends UserKernel {
 		TranslationEntry entry = Machine.processor().readTLBEntry(i);
 		proc.syncTLBPTE(entry); 
 	}
+	pinLock.acquire();
+	if(pinCounter == Machine.processor().getNumPhysPages()){
+		
+		pinCond.sleep();
+	}
+	pinLock.release();
+	while(true){	
+		memInfo info = invertedPageTable[clockhand];
 
-	while(invertedPageTable[clockhand].te.used == true){	
+		if(info.te.used){
+			info.te.used = false;
+		}
+		else{	
+			if(!info.pinned){
+				break;
+			}
+		}
+		//increment
+		clockhand = (clockhand+1) % (invertedPageTable.length);
+	}
+	/*while(invertedPageTable[clockhand].te.used == true){	
 		//TODO check pinned if pinned
-		invertedPageTable[clockhand].te.used = false;
+		memInfo info = invertedPageTable[clockhand];
+		info.te.used = false;
+		clockhand = (clockhand+1) % (invertedPageTable.length);
 		if(invertedPageTable[clockhand].pinned == true){
 			clockhand = (clockhand+1) % (invertedPageTable.length);	
 		}
-	}
+	}*/
 	toEvict = clockhand;
 	clockhand = (clockhand+1) % (invertedPageTable.length); 
      
@@ -143,8 +167,6 @@ public class VMKernel extends UserKernel {
 	// STEVEN
 	// Swap page from disk to physical memory
 	public static void swapIn(int vpn, VMProcess proc, int ppn){
-		System.out.println("SwapIn");
-		
 		memInfo mi = new memInfo(vpn, proc, false); 
 		
 		byte [] memory = Machine.processor().getMemory();
@@ -205,6 +227,12 @@ public class VMKernel extends UserKernel {
 	private static final int pageSize = Processor.pageSize;
 
 	public int swapCounter = 0;
+	
+	public static Condition pinCond;
+
+	public static Lock pinLock;
+	// counts the number of pinned pages
+	public static int pinCounter = 0;
 
 	public static memInfo [] invertedPageTable;
 
