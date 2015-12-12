@@ -54,6 +54,7 @@ public class VMKernel extends UserKernel {
 		super.terminate();
 	}
 
+	
   public static int allocate(int vpn, VMProcess proc) {
     int ppn = -1;
 
@@ -65,8 +66,6 @@ public class VMKernel extends UserKernel {
     	//clock algorithm for victim 
 	int toEvict = 0;
 
-	memInfo mi  = null; 	
-	
 	//sync
 	for(int i = 0; i < Machine.processor().getTLBSize(); i++){
 		TranslationEntry entry = Machine.processor().readTLBEntry(i);
@@ -76,7 +75,9 @@ public class VMKernel extends UserKernel {
 	while(invertedPageTable[clockhand].te.used == true){	
 		//TODO check pinned if pinned
 		invertedPageTable[clockhand].te.used = false;
-		clockhand = (clockhand+1) % (invertedPageTable.length);
+		if(invertedPageTable[clockhand].pinned == true){
+			clockhand = (clockhand+1) % (invertedPageTable.length);	
+		}
 	}
 	toEvict = clockhand;
 	clockhand = (clockhand+1) % (invertedPageTable.length); 
@@ -104,7 +105,6 @@ public class VMKernel extends UserKernel {
 			Machine.processor().writeTLBEntry(i,new TranslationEntry());
 			break;
 		}
-		//proc.syncTLBPTE(entry); 
 	}	
    }
    return ppn;
@@ -138,16 +138,6 @@ public class VMKernel extends UserKernel {
 
 		TranslationEntry toInvalidate = info.te;
 		toInvalidate.valid = false; 
-
-		//for(int i = 0; i < Machine.processor().getTLBSize(); i++){
-		//TranslationEntry entry = Machine.processor().readTLBEntry(i);
-		/*if(entry.valid && entry.ppn == ppn){
-			Machine.processor().writeTLBEntry(i,new TranslationEntry());
-			break;
-		}*/
-		//proc.syncTLBPTE(entry); 
-		//}
-
 	}
 	
 	// STEVEN
@@ -155,7 +145,7 @@ public class VMKernel extends UserKernel {
 	public static void swapIn(int vpn, VMProcess proc, int ppn){
 		System.out.println("SwapIn");
 		
-		memInfo mi = new memInfo(vpn, proc); 
+		memInfo mi = new memInfo(vpn, proc, false); 
 		
 		byte [] memory = Machine.processor().getMemory();
 		
@@ -168,15 +158,6 @@ public class VMKernel extends UserKernel {
 		TranslationEntry tlbEntry = mi.te;
 		tlbEntry.valid = true;
 		
-		//for(int i = 0; i < Machine.processor().getTLBSize(); i++){
-		//TranslationEntry entry = Machine.processor().readTLBEntry(i);
-		/*if(entry.valid && entry.ppn == ppn){
-			Machine.processor().writeTLBEntry(i,new TranslationEntry());
-			break;
-		}*/
-		//proc.syncTLBPTE(entry); 
-		//}
-
 	}
 
 	/*ClutchAF made */
@@ -187,11 +168,13 @@ public class VMKernel extends UserKernel {
 		TranslationEntry te; 
 		//pinned for later
 		int pinCount = 0;
-	
-		public memInfo(int vpn, VMProcess owner){
+		boolean pinned;
+
+		public memInfo(int vpn, VMProcess owner, boolean pinned){
 			this.vpn = vpn;
 			this.owner = owner;
 			this.te = owner.getPageTable()[vpn];
+			this.pinned = pinned;
 		}
 		
 		public TranslationEntry[] getPageTable() {

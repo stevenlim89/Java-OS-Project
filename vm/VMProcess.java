@@ -97,6 +97,28 @@ public class VMProcess extends UserProcess {
 		super.unloadSections();
 	}
 
+	public int pinVirtualPage(int vpn, boolean beingWritten){
+		TranslationEntry entry = pageTable[vpn];
+
+		if (vpn < 0 || vpn >= pageTable.length)
+	    		return -1;
+
+		if (!entry.valid || entry.vpn != vpn)
+	    		return -1;
+
+		if (beingWritten) {
+	    		if (entry.readOnly)
+				return -1;
+	   		 entry.dirty = true;
+		}
+
+		entry.used = true;
+
+		return entry.ppn;
+
+	}
+
+
 	/**
 	 * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
 	 * . The <i>cause</i> argument identifies which exception occurred; see the
@@ -207,7 +229,7 @@ public class VMProcess extends UserProcess {
 	//set entry to true
     	pte.valid = true;
 	pte.ppn = ppn;
- 	VMKernel.memInfo info = new VMKernel.memInfo(vpn,this); 	
+ 	VMKernel.memInfo info = new VMKernel.memInfo(vpn,this, false); 	
 	VMKernel.invertedPageTable[pte.ppn] = info; 
 	
   }
