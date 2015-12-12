@@ -117,44 +117,33 @@ public class VMProcess extends UserProcess {
 
 	public void handleTLBMiss(int vaddr){
 
-		//check validity of vaddr
 		if(vaddr < 0 || vaddr >= numPages*pageSize){
-			//what to put as the exit status? 0 or -1?
 			super.handleExit(0); 
 		}
 		
 		Processor processor = Machine.processor();
 	
-		// get vpn 
 		int vpn = processor.pageFromAddress(vaddr);
-		System.out.println("tlb miss vpn: " + vpn);
+		System.out.println("tlb miss: " + vpn); 
 
-		// get pte from vpn
 		TranslationEntry pte = pageTable[vpn];
 
-		//IF INVALID = handlePageFault
     		if(!pte.valid) {
       			handlePageFault(vpn);
     		}
 
-		//IF VALID, ALLOCATE TLB ENTRY
-		// Get size of TLB
 		int tlbSize = processor.getTLBSize();
 
-    		// initialize index to tlb to evict page
 		int evictIndex = 0;
 
-		// Loop through TLB to find invalid entry
 		for(int i = 0; i < tlbSize; i++){
 			TranslationEntry entry = processor.readTLBEntry(i);
 			
-			//if invalid, grab index 
 			if(!entry.valid){
 				evictIndex = i;
 				break;
 			}
 			
-			// if all of the entries are valid, evict random one
 			if(i == tlbSize - 1){
 				evictIndex = Lib.random(tlbSize);
 				entry = processor.readTLBEntry(evictIndex);
@@ -169,8 +158,6 @@ public class VMProcess extends UserProcess {
 			}
 		}
 
-		
-		//UPDATE TLB
 		processor.writeTLBEntry(evictIndex, pte);
 	     
 	}
@@ -180,22 +167,27 @@ public class VMProcess extends UserProcess {
 	
 	int ppn = VMKernel.allocate(vpn, this);
 
-	System.out.println("pte.ppn after alloc: " + pte.ppn);
+	System.out.println("alloc ppn: " + ppn);
+
+	//if it's a stack/args page
 	if(coffMap.get(vpn) == null) {
-      		//zero out the whole page
       		System.out.println("STACK");
-     	 	byte[] buffer = new byte[pageSize];
-      		byte[] memory = Machine.processor().getMemory();
-		pte.dirty = true;
-		
-		if( pte.ppn == -1){
-      		System.arraycopy(buffer, 0, memory, ppn*pageSize, pageSize);
+	
+		//new stack page	
+		if( pte.ppn == -1)
+		{
+			byte[] buffer = new byte[pageSize];
+			byte[] memory = Machine.processor().getMemory();
+			System.arraycopy(buffer, 0, memory, ppn*pageSize, pageSize);
+			pte.dirty = true;
 		}
-		else{
+		else //load stack page from swap
+		{
 			System.out.println("I am in first swapin");
-			VMKernel.swapIn(pte.vpn, this);
+			VMKernel.swapIn(pte.vpn, this, ppn);
 		}
     	}
+	//if loading from coff
     	else if(vpnSpnPair.get(vpn) == null){
 		System.out.println("COFF");
       		if(pte.readOnly == false){
@@ -207,9 +199,10 @@ public class VMProcess extends UserProcess {
       		csection.loadPage(offset, ppn);
 
     	}
+	//oading coff page from swap
 	else{
 		System.out.println("SWAP");
-		VMKernel.swapIn(pte.vpn,this);
+		VMKernel.swapIn(pte.vpn,this,ppn);
 	}	
 	//set entry to true
     	pte.valid = true;

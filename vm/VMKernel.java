@@ -89,7 +89,7 @@ public class VMKernel extends UserKernel {
      	
 	//if dirty swap out
      	if(victim.dirty){
-		swapOut(toEvict, vpn,proc);
+		swapOut(toEvict, proc);
 	}
    	
 	ppn = toEvict;
@@ -100,11 +100,11 @@ public class VMKernel extends UserKernel {
 	//sync tlb and check if valid && ppn matches, write a false tlb entry 
 	for(int i = 0; i < Machine.processor().getTLBSize(); i++){
 		TranslationEntry entry = Machine.processor().readTLBEntry(i);
-		/*if(entry.valid && entry.ppn == ppn){
+		if(entry.valid && entry.ppn == ppn){
 			Machine.processor().writeTLBEntry(i,new TranslationEntry());
 			break;
-		}*/
-		proc.syncTLBPTE(entry); 
+		}
+		//proc.syncTLBPTE(entry); 
 	}	
    }
    return ppn;
@@ -114,7 +114,7 @@ public class VMKernel extends UserKernel {
  	 * Swapping from physical memory to disk
  	 * toSwap - invertedPageTable index of the evicted page?
  	 * */
-	public static void swapOut(int toSwap, int vpn,VMProcess proc)
+	public static void swapOut(int toSwap, VMProcess proc)
 	{
 		byte [] memory = Machine.processor().getMemory();
 
@@ -131,32 +131,31 @@ public class VMKernel extends UserKernel {
 		//if no mapping exists, increase swapFile and associate vpn
 		if(writeSpn == null){
 			writeSpn = lastSwapPage++; 
-			info.owner.vpnSpnPair.put(vpn,writeSpn);
+			info.owner.vpnSpnPair.put(info.te.vpn,writeSpn);
 		}
 
 		swapFile.write(writeSpn*pageSize, memory, info.te.ppn*pageSize, pageSize); 
 
 		TranslationEntry toInvalidate = info.te;
 		toInvalidate.valid = false; 
-		info.owner.vpnSpnPair.remove(toInvalidate.vpn);
 
-		for(int i = 0; i < Machine.processor().getTLBSize(); i++){
-		TranslationEntry entry = Machine.processor().readTLBEntry(i);
+		//for(int i = 0; i < Machine.processor().getTLBSize(); i++){
+		//TranslationEntry entry = Machine.processor().readTLBEntry(i);
 		/*if(entry.valid && entry.ppn == ppn){
 			Machine.processor().writeTLBEntry(i,new TranslationEntry());
 			break;
 		}*/
-		proc.syncTLBPTE(entry); 
-		}
+		//proc.syncTLBPTE(entry); 
+		//}
 
 	}
 	
 	// STEVEN
 	// Swap page from disk to physical memory
-	public static void swapIn(int vpn, VMProcess process){
+	public static void swapIn(int vpn, VMProcess proc, int ppn){
 		System.out.println("SwapIn");
 		
-		memInfo mi = new memInfo(vpn, process); 
+		memInfo mi = new memInfo(vpn, proc); 
 		
 		byte [] memory = Machine.processor().getMemory();
 		
@@ -164,21 +163,19 @@ public class VMKernel extends UserKernel {
 		TranslationEntry [] pageTable = mi.getPageTable();
 
 		if(readSpn != null){
-			swapFile.read(readSpn*pageSize, memory, mi.te.ppn*pageSize,pageSize);
-				
+			swapFile.read(readSpn*pageSize, memory, ppn*pageSize,pageSize);	
 		}		
 		TranslationEntry tlbEntry = mi.te;
 		tlbEntry.valid = true;
-		mi.owner.vpnSpnPair.put(tlbEntry.vpn, readSpn); 
 		
-		for(int i = 0; i < Machine.processor().getTLBSize(); i++){
-		TranslationEntry entry = Machine.processor().readTLBEntry(i);
+		//for(int i = 0; i < Machine.processor().getTLBSize(); i++){
+		//TranslationEntry entry = Machine.processor().readTLBEntry(i);
 		/*if(entry.valid && entry.ppn == ppn){
 			Machine.processor().writeTLBEntry(i,new TranslationEntry());
 			break;
 		}*/
-		process.syncTLBPTE(entry); 
-		}
+		//proc.syncTLBPTE(entry); 
+		//}
 
 	}
 
