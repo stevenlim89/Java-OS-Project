@@ -54,9 +54,7 @@ public class VMKernel extends UserKernel {
 		super.terminate();
 	}
 
-  //method to lazy load the physical page for that vpn
   public static int allocate(int vpn, VMProcess proc) {
-    //initial value for ppn... use -1 to indicate pin?
     int ppn = -1;
 
     //make sure there are free pages
@@ -68,6 +66,12 @@ public class VMKernel extends UserKernel {
 	int toEvict = 0;
 
 	memInfo mi  = null; 	
+	
+	//sync
+	for(int i = 0; i < Machine.processor().getTLBSize(); i++){
+		TranslationEntry entry = Machine.processor().readTLBEntry(i);
+		proc.syncTLBPTE(entry); 
+	}
 
 	while(invertedPageTable[clockhand].te.used == true){	
 		//TODO check pinned if pinned
@@ -85,7 +89,7 @@ public class VMKernel extends UserKernel {
      	
 	//if dirty swap out
      	if(victim.dirty){
-		swapOut(toEvict, vpn);
+		swapOut(toEvict, vpn,proc);
 	}
    	
 	ppn = toEvict;
@@ -94,7 +98,14 @@ public class VMKernel extends UserKernel {
   	pageTable[victim.vpn].valid = false;
 	
 	//sync tlb and check if valid && ppn matches, write a false tlb entry 
-	for
+	for(int i = 0; i < Machine.processor().getTLBSize(); i++){
+		TranslationEntry entry = Machine.processor().readTLBEntry(i);
+		/*if(entry.valid && entry.ppn == ppn){
+			Machine.processor().writeTLBEntry(i,new TranslationEntry());
+			break;
+		}*/
+		proc.syncTLBPTE(entry); 
+	}	
    }
    return ppn;
  }
@@ -103,7 +114,7 @@ public class VMKernel extends UserKernel {
  	 * Swapping from physical memory to disk
  	 * toSwap - invertedPageTable index of the evicted page?
  	 * */
-	public static void swapOut(int toSwap, int vpn)
+	public static void swapOut(int toSwap, int vpn,VMProcess proc)
 	{
 		byte [] memory = Machine.processor().getMemory();
 
@@ -128,30 +139,47 @@ public class VMKernel extends UserKernel {
 		TranslationEntry toInvalidate = info.te;
 		toInvalidate.valid = false; 
 		info.owner.vpnSpnPair.remove(toInvalidate.vpn);
+
+		for(int i = 0; i < Machine.processor().getTLBSize(); i++){
+		TranslationEntry entry = Machine.processor().readTLBEntry(i);
+		/*if(entry.valid && entry.ppn == ppn){
+			Machine.processor().writeTLBEntry(i,new TranslationEntry());
+			break;
+		}*/
+		proc.syncTLBPTE(entry); 
+		}
+
 	}
 	
 	// STEVEN
 	// Swap page from disk to physical memory
-	public static void swapIn(int vpn, VMProcess process){//, int ppn, VMProcess process){
+	public static void swapIn(int vpn, VMProcess process){
 		System.out.println("SwapIn");
 		
 		memInfo mi = new memInfo(vpn, process); 
 		
 		byte [] memory = Machine.processor().getMemory();
 		
-		//HashMap<Integer, CoffSection> coffMap = info.getCoffMap();
-		//HashMap<Integer, CoffSection> coffMap = process.getCoffMap(); 
-
 		Integer readSpn = mi.owner.vpnSpnPair.get(vpn);
 		TranslationEntry [] pageTable = mi.getPageTable();
 
 		if(readSpn != null){
-			swapFile.read(readSpn*pageSize, memory, mi.te.ppn*pageSize,pageSize);//ppn*pageSize, pageSize);
+			swapFile.read(readSpn*pageSize, memory, mi.te.ppn*pageSize,pageSize);
 				
 		}		
-		TranslationEntry tlbEntry = mi.te; //pageTable[vpn];
+		TranslationEntry tlbEntry = mi.te;
 		tlbEntry.valid = true;
 		mi.owner.vpnSpnPair.put(tlbEntry.vpn, readSpn); 
+		
+		for(int i = 0; i < Machine.processor().getTLBSize(); i++){
+		TranslationEntry entry = Machine.processor().readTLBEntry(i);
+		/*if(entry.valid && entry.ppn == ppn){
+			Machine.processor().writeTLBEntry(i,new TranslationEntry());
+			break;
+		}*/
+		process.syncTLBPTE(entry); 
+		}
+
 	}
 
 	/*ClutchAF made */
@@ -163,24 +191,19 @@ public class VMKernel extends UserKernel {
 		//pinned for later
 		int pinCount = 0;
 	
-		public memInfo(int vpn, VMProcess owner){// TranslationEntry te){
+		public memInfo(int vpn, VMProcess owner){
 			this.vpn = vpn;
 			this.owner = owner;
 			this.te = owner.getPageTable()[vpn];
- 
 		}
 		
 		public TranslationEntry[] getPageTable() {
 			return owner.getPageTable();
 		}
-		//STEVEN	
+			
 		public HashMap<Integer, CoffSection> getCoffMap(){
 			return owner.getCoffMap();
-		}
-		//public TranslationEntry getEntry() { 
-		//	return owner.getPageTable()[vpn];
-		//}
-
+		}	
 	}
  
 	// dummy variables to make javac smarter

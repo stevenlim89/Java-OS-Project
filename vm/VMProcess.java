@@ -218,6 +218,15 @@ public class VMProcess extends UserProcess {
 	VMKernel.invertedPageTable[pte.ppn] = info; 
 	
   }
+	
+	/* ClutchAF made */
+	public void syncTLBPTE( TranslationEntry te ){
+		pageTable[te.vpn].dirty = te.dirty;
+		pageTable[te.vpn].valid = te.valid;
+		pageTable[te.vpn].used = te.used;
+		pageTable[te.vpn].readOnly = te.readOnly;
+	}
+
 	/* ClutchAF made */
 	public TranslationEntry[] getPageTable() {
 		return pageTable;
