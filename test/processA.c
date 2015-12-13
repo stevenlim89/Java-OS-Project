@@ -23,8 +23,8 @@ int main ( int argc, char ** argv)
 		write(1,str2,1);
 		str2++;
 	}
-  int y = join(x, &st);
-  printf("\ndisown %d", y); 
+  //int y = join(x, &st);
+  //printf("\ndisown %d", y); 
 
 	return 0;
 

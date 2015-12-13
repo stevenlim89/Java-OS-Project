@@ -1,0 +1,441 @@
+-----------------
+
+ CSE 120 MEMBERS
+
+-----------------
+
+1. Chau Lucky Nguyen 
+
+PID: A10742893 
+
+Login: cs120edp
+
+2. Ryan Weng 
+
+PID: A10713613 
+
+Login: rweng
+
+3. Steven Lim 
+
+PID:A10565388 
+
+Login: stl054
+
+
+
+------------------------------
+
+ DESCRIPTION OF CODE WE WROTE
+
+------------------------------
+
+>>> VMProcess.java
+
+
+
+---VARIABLES---
+
+public HashMap<Integer, Integer> vpnSpnPair
+
+This hashmap keeps track of all the virtual page numbers with their resp	respective swap page number.
+
+**Used in VMProcess and VMKernel**
+
+ 
+
+private HashMap<Integer, CoffSection> coffMap
+
+This hashmap keeps track of the virtual page number with its coff
+
+section. We use the mapping to see if the page requested is from a 
+
+coff section. If it is, we read it from there without going to disk.
+
+**Used in VMProcess and VMKernel**
+
+
+
+private static final int pageSize = Processor.pageSize
+
+This value is the size of a page. It is obtained from the processor
+
+class.
+
+**Used in VMProcess**
+
+
+
+int evictIndex
+
+This variable is used to determine which index in the TLB to evict.
+
+**Used in VMProcess**
+
+
+
+>>> VMKernel.java
+
+
+
+---VARIABLES---
+
+private static int lastSwapPage
+
+Variable to increment if there are no mappings between a virtual
+
+page number and its swap page number. Used to allocate mapping.
+
+**Used in VMKernel**
+
+
+
+private static int clockhand
+
+Variable used to increment the clock hand in our clock algorithm
+
+to find the physical page we want to page out to disk.
+
+**Used in VMKernel**
+
+
+
+public static OpenFile swapFile
+
+File that we used for our swap space. We dynamically write or read
+
+from swap space and put it in/to memory depending on the type of 
+
+entry.
+
+**Used in VMKernel** 
+
+
+
+public String nameOfSwap
+
+Name of the file on disk that we designate as our swap space. It is on
+
+disk so that we can swap in/out from it when we need to.
+
+**Used in VMKernel**
+
+
+
+private static final int pageSize
+
+Variable to get the size of a page.
+
+**Used in VMkernel and VMProcess**
+
+
+
+public static Condition pinCond
+
+Condition variable we use to wake up a thread if there are any pages
+
+that get unpinned. If all threads are pinned, we put the condition
+
+variable to sleep until there is an unpinned entry.
+
+**Used in VMKernel and VMProcess**
+
+
+
+public Lock pinLock
+
+Global Lock that is used to synchronize our program. Used to initialize our condition variable.
+
+**Used in VMProcess and VMKernel**
+
+
+
+public int pinCounter
+
+Counter to keep track of how many physical pages have been pinned.
+
+If all pages in physical memory have been pinned, we want to put current
+
+thread to sleep. 
+
+**Used in VMProcess and VMKernel**
+
+
+
+public static memInfo [] invertedPageTable
+
+Inverted page table that contains an array of objects that has 
+
+information about if a page entry has been pinned or not. It also
+
+has the same size as physical memory. Keeps track of everything going
+
+on in physical memory
+
+**Used in VMProcess and VMKernel**
+
+
+
+public static Lock bigLock
+
+Lock used to synchronize the handleTLBMiss.
+
+**Used in VMProcess**
+
+
+
+--- Methods--
+
+>>>VMProcess.java
+
+
+
+loadSections 
+
+We overrided loadSections from UserProcess.java. It is very similar to 
+
+the original one however, we initialized the pageTable differently. We
+
+set the ppn to -1 to indicate in our TLBMiss that this was the first 
+
+time the page loaded.
+
+
+
+pinVirtualPage
+
+We overrided this method from UserProcess.java. Again, very similar
+
+in that we check if the bit was written and return the ppn after 
+
+setting the entry to true, but we also set our invertedPageTable
+
+pinned entry to true. If a page is being pinned, then we need to 
+
+let our IPT know that that page in physical memory should not be used.
+
+We also increment out pinCounter that keeps track of the number of 
+
+pinned pages. 
+
+
+
+unPinVirtualPage
+
+This method was overrided from UserProcess.java. This method is the
+
+opposite of pinVirtualPage. It decrements our pin counter and also
+
+sets our invertedPageTable's pinned value to false to indicate that 
+
+that page can be accessed. We also wake up any threads that were put to
+
+sleep when we put the main thread to sleep prior to our clock algorithm.
+
+
+
+handleTLBMiss
+
+This method checks to see which entry in the TLB to evict when the
+
+TLB is full and we need to allocate a page in there. If the virutal
+
+address that caused the miss is invalid, we must go to memory and handle	the page fault. We do this by calling our pageFaultHandler that does
+
+the necessary things to find a good entry in memory to use for our 
+
+virtual address to map to. Once we find a good physical address and
+
+we find an invalid index in the TLB to evict, we write that entry
+
+into the index that we found.
+
+
+
+handlePageFault
+
+This method assists in handling page faults. When a page fault occurs,
+
+we need to determine whether to read from the coff section or from
+
+the swap space located on disk. If it is our TLB miss and its a 
+
+stack/arg page, we need to zero out that page in memory. If its not
+
+our first time, we read from the swap space. If the TLB miss does
+
+not correspond to the swap space, then we just read from the coff
+
+section. We also need to allocate an entry for our inverted page table
+
+and update our page table entry by setting the valid bit to true.
+
+
+
+syncTLBPTE
+
+This method syncs our TLB entry that is passed in with the pageTable.
+
+We set the entry's dirty and used bits to the page table entry with
+
+the corresponding vpn that was passed in. We only do this syncrhoni-	zation if the entry passed in is valid.
+
+
+
+getPageTable
+
+Returns the pageTable of the VMProcess. Since its protected, we need
+
+to use a getter method.
+
+
+
+getCoffMap
+
+Since our coff section map is private, we need a way to access it in
+
+VMKernel.java. This getter method returns the coffMap.
+
+
+
+ >>>VMKernel.java
+
+
+
+allocate
+
+This method helps us allocate a physical page on memory by evicting a
+
+certain page so that we can map a virtual address to it. We first check
+
+if there are any free physical pages (from proj2). If there are free
+
+pages, just return that ppn. If there are no free physical pages,
+
+then we have to synch the TLB entries and then run our clock 
+
+algorithm to find a page in physical memory to replace. 
+
+Once we find that index from our clock algorithm, we check if that page
+
+is dirty. If it is, we have to swap out to disk and write to the swap 
+
+file on disk. After we do that, we invalidate the page table entry
+
+and the TLB entry of the victim. Once that is done, we return ppn.
+
+
+
+swapOut
+
+Swap out checks to see if the address passed in is read only or if
+
+it has not been written in to yet. If either of those cases is met, 
+
+then it returns and nothing happens. However, if the bit is dirty,
+
+or not read only, then we have to write to the swap file by getting
+
+the virtual page number's swap number and writing to that specific 
+
+entry in our swap space. After writing to the swap space, we have to
+
+invalidate the entry.
+
+
+
+swapIn
+
+If the TLBMiss isn't related to a stack/arg page and there is a mapping
+
+to a swap file based on the vpn to spn mapping, then we want to read
+
+from the swap file on disk and write it to memory. That is what swapIn
+
+does. After reading from the swap file, we need to validate that entry.
+
+
+
+--- CODE WE ADDED -- 
+
+
+
+>>>VMKernel.java
+
+
+
+memInfo class
+
+This class contains all the information about our physical memory.
+
+Our inverted page table stores an array of these. We use this object
+
+throughout the program to update our inverted page table and to access
+
+information from it.
+
+
+
+----------------
+
+ HOW WE TESTED 
+
+----------------
+
+General Testing
+
+We utilized the autograder
+
+We wrote many print statements to trace our code and value at each step of execution
+
+Followed general tips from Professor Voelker to write tests independent of each other
+
+
+
+In addition to the write tests that Professor Voelker wrote for project 2, we tested our code on the new files: swap1, swap4, and swap5
+
+
+
+swap1
+
+We used this test for validating the simple lazy intializing of code, 
+
+stack, and data pages. If successful, code exits with status of 
+
+-1000.
+
+
+
+swap4
+
+We used this test for page swapping by initializing an array larger
+
+than physical memory. If successful, code exits with status of 
+
+-1000.
+
+
+
+swap5
+
+We used this test for more page swapping checking. It initliazes an 
+
+array larger than physical memory and modifies it. When the pages
+
+are allocated correctly, then it exits with status of -1000.
+
+
+
+--------------
+
+ CONTRIBUTION
+
+--------------
+
+We didn't have a system like assigning each person to a section or a method. We would combine
+
+our minds when trying to figure out how to write a method. However, when we tested a method, 
+
+we would have one person test the method, while the other members would attempt to write the 
+
+next method. 
