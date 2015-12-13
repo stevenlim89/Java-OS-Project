@@ -35,7 +35,7 @@ public class VMProcess extends UserProcess {
 				pageTable[entry.vpn] = entry;
 				entry.valid = false;
 				processor.writeTLBEntry(i, entry);
-        entry.valid = true;
+     				entry.valid = true;
 			}
 		}
 	}
@@ -55,22 +55,17 @@ public class VMProcess extends UserProcess {
 	 */
 	protected boolean loadSections() {
 		Processor processor = Machine.processor();
-		/*if(VMKernel.freePages.size() < numPages){
-			coff.close();
-			Lib.debug(dbgProcess, "\tinsufficient physical memory");
-			return false;
-		}*/
-    
-    //allocate the page table
+	    
+    		//allocate the page table
 		pageTable = new TranslationEntry[numPages];
 
-    //allocate the entries but do not initialize yet bc lazy loading
-    //set ppn to -1 to indicate the need to initialize in handleTLBmiss
-    for (int vpn=0; vpn<numPages; vpn++) {
-      pageTable[vpn] = new TranslationEntry(vpn, -1, false, false, false, false);
-    }
+    		//allocate the entries but do not initialize yet bc lazy loading
+    		//set ppn to -1 to indicate the need to initialize in handleTLBmiss
+    		for (int vpn=0; vpn<numPages; vpn++) {
+      			pageTable[vpn] = new TranslationEntry(vpn, -1, false, false, false, false);
+    		}
     
-    for(int s = 0; s < coff.getNumSections(); s++){
+    		for(int s = 0; s < coff.getNumSections(); s++){
 			CoffSection section = coff.getSection(s);
 
 			Lib.debug(dbgProcess, "\tinitializing " + section.getName()
@@ -194,7 +189,7 @@ public class VMProcess extends UserProcess {
 		}
 
 		processor.writeTLBEntry(evictIndex, pte);
-	     VMKernel.bigLock.release();
+		VMKernel.bigLock.release();
 	}
 
   public void handlePageFault(int vpn) {

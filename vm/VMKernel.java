@@ -33,8 +33,7 @@ public class VMKernel extends UserKernel {
 		swapFile = ThreadedKernel.fileSystem.open(nameOfSwap, true);
 		
 		// Initialize size of inverted Page table to physical memory
-		invertedPageTable = new memInfo[Machine.processor().getNumPhysPages()]; 
- 
+		invertedPageTable = new memInfo[Machine.processor().getNumPhysPages()];  
 	}
 
 	/**
@@ -153,7 +152,6 @@ public class VMKernel extends UserKernel {
 		toInvalidate.valid = false; 
 	}
 	
-	// STEVEN
 	// Swap page from disk to physical memory
 	public static void swapIn(int vpn, VMProcess proc, int ppn){
 		memInfo mi = new memInfo(vpn, proc, false); 
@@ -172,12 +170,10 @@ public class VMKernel extends UserKernel {
 	}
 
 	/*ClutchAF made */
-	//perhaps put PID, TranslationEntry, pinned ?
 	public static class memInfo{
 		int vpn;
 		VMProcess owner;
 		TranslationEntry te; 
-		//pinned for later
 		int pinCount = 0;
 		boolean pinned;
 
