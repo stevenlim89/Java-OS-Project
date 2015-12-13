@@ -25,6 +25,7 @@ public class VMKernel extends UserKernel {
 
 		swapList = new LinkedList<Integer>();
 		
+		bigLock = new Lock(); 
 		pinLock = new Lock();
 		pinCond = new Condition(pinLock);
 
@@ -217,6 +218,8 @@ public class VMKernel extends UserKernel {
 	public int swapCounter = 0;
 	
 	public static Condition pinCond;
+	
+	public static Lock bigLock; 
 
 	public static Lock pinLock;
 	// counts the number of pinned pages

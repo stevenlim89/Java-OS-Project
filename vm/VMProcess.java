@@ -98,10 +98,11 @@ public class VMProcess extends UserProcess {
 	}
 
 	public int pinVirtualPage(int vpn, boolean beingWritten){	
+	
 		if (vpn < 0 || vpn >= pageTable.length)
 	    		return -1;
 		TranslationEntry entry = pageTable[vpn];
-		// Dont want to return -1. Want to get valid entry in phys mem
+		
 		if (!entry.valid || entry.vpn != vpn)
 	    		handlePageFault(vpn);
 
@@ -110,25 +111,26 @@ public class VMProcess extends UserProcess {
 				return -1;
 	   		 entry.dirty = true;
 		}
-		//System.out.println("This is the entry.ppn:    " + entry.ppn);
 		VMKernel.invertedPageTable[entry.ppn].pinned = true;
-		// counter to increment number of pages that are pinned in physmem
+		
 		VMKernel.pinCounter++;
 
 		entry.used = true;
+	
 		return entry.ppn;
 	}
 
 	public void unpinVirtualPage(int vpn){
+		VMKernel.pinLock.acquire(); 
+		
 		TranslationEntry entry = pageTable[vpn];
+		
 		VMKernel.pinCounter--;
 
 		VMKernel.invertedPageTable[entry.ppn].pinned = false;
 		
-		VMKernel.pinLock.acquire();
-		//if(VMKernel.pinCounter == 0){
-			VMKernel.pinCond.wake();
-		//}
+		VMKernel.pinCond.wake();
+		
 		VMKernel.pinLock.release();
 	}
 	/**
@@ -150,7 +152,7 @@ public class VMProcess extends UserProcess {
 	}
 
 	public void handleTLBMiss(int vaddr){
-
+		VMKernel.bigLock.acquire(); 
 		if(vaddr < 0 || vaddr >= numPages*pageSize){
 			super.handleExit(0); 
 		}
@@ -192,14 +194,12 @@ public class VMProcess extends UserProcess {
 		}
 
 		processor.writeTLBEntry(evictIndex, pte);
-	     
+	     VMKernel.bigLock.release();
 	}
 
   public void handlePageFault(int vpn) {
     	TranslationEntry pte = pageTable[vpn];
-	
 	int ppn = VMKernel.allocate(vpn, this);
-
 	//if it's a stack/args page
 	if(coffMap.get(vpn) == null) {
 	
